@@ -1,0 +1,25 @@
+# Test-only Worker config for the vitest pool.
+#
+# It exists to leave out the `[ai]` binding: Workers AI has no local emulation,
+# so declaring it makes the pool open a *remote* proxy session against a real
+# Cloudflare account. The tests exercise the AI path with an injected stub.
+#
+# Queue bindings are left out too — the tests that need one pass their own, and
+# without them every producer here falls back to running inline.
+name = "task-tracker-api-test"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# The live-update Durable Object has full local emulation in Miniflare, so the
+# tests use a real one.
+[[durable_objects.bindings]]
+name = "LIVE"
+class_name = "UserLive"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["UserLive"]
+
+[vars]
+CF_ACCESS_TEAM_DOMAIN = "test.cloudflareaccess.com"
+CF_ACCESS_AUD = "test-aud"

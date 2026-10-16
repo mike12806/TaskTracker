@@ -1,0 +1,27 @@
+{
+  "name": "task-tracker-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run --outdir=dist",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "kv:migrate": "node scripts/kv-migrate.mjs --local",
+    "kv:migrate:remote": "node scripts/kv-migrate.mjs --remote",
+    "kv:status": "node scripts/kv-migrate.mjs --remote --dry-run",
+    "db:migrate": "wrangler d1 migrations apply task-tracker-db --local"
+  },
+  "dependencies": {
+    "hono": "4.13.13"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.23.0",
+    "@cloudflare/workers-types": "5.20261013.1",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11",
+    "wrangler": "4.150.0"
+  }
+}

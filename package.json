@@ -1,0 +1,25 @@
+{
+  "name": "task-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "overrides": {
+    "esbuild": "0.28.2",
+    "@cloudflare/vitest-pool-workers": {
+      "miniflare": "5.20260930.0-alpha",
+      "wrangler": "4.150.0"
+    }
+  },
+  "scripts": {
+    "dev:client": "npm run dev -w client",
+    "dev:server": "npm run dev -w server",
+    "build:client": "npm run build -w client",
+    "build:server": "npm run build -w server",
+    "test": "npm run test -w server && npm run test -w client",
+    "test:server": "npm run test -w server",
+    "test:client": "npm run test -w client"
+  }
+}

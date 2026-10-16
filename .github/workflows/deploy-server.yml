@@ -1,0 +1,226 @@
+name: Deploy Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/deploy-server.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  ZONE_NAME: mfaherty.net
+  PURGE_DOMAIN: tasks.mfaherty.net
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit -p server/tsconfig.json
+
+      - name: Run tests
+        run: npm run test -w server
+
+  deploy:
+    name: Deploy Worker
+    runs-on: ubuntu-24.04
+    needs: test
+    environment: production
+    permissions:
+      contents: read
+      deployments: write
+      id-token: write  # Tailscale + Vault logins through GitHub OIDC
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      # Deploy secrets come from Vault (role tasktracker-deploy, gh_hdc vault/),
+      # reached over the tailnet as tag:ci-vault with no stored secret. Runs
+      # before npm and leaves the tailnet before any build code runs.
+      - name: Read secrets from Vault
+        uses: mike12806/public-jobs/.github/actions/vault-secrets@d130d0c97140a85f9e8fca79f0ab040545dd2e79 # main
+        with:
+          role: tasktracker-deploy
+          hostname: github-tasktracker-deploy
+          secrets: |
+            kv/data/github/TaskTracker/cloudflare CLOUDFLARE_API_TOKEN | CLOUDFLARE_API_TOKEN ;
+            kv/data/github/TaskTracker/cloudflare CLOUDFLARE_ACCOUNT_ID | CLOUDFLARE_ACCOUNT_ID
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # The Worker validates every request's Cloudflare Access JWT against the
+      # application's audience tag. Deploying with the placeholder would answer
+      # 401 to everything, so stop here instead, before anything is changed.
+      - name: Check Access audience is configured
+        run: |
+          if grep -q 'REPLACE_WITH_ACCESS_AUD' server/wrangler.toml; then
+            echo "::error::CF_ACCESS_AUD in server/wrangler.toml is still the placeholder. Create the Cloudflare Access application for tasks.mfaherty.net and put its Application Audience (AUD) tag there."
+            exit 1
+          fi
+
+      # D1 migrations are idempotent — wrangler tracks applied migrations
+      # and only runs new ones. Safe to run on every deploy.
+      - name: Apply D1 migrations
+        run: npx wrangler d1 migrations apply task-tracker-db --remote
+        working-directory: server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Queues have to exist before a deploy that binds them — wrangler
+      # validates bindings at upload and rejects the deploy otherwise. Creating
+      # them here keeps that from being a one-off manual step someone has to
+      # remember. `create` on an existing queue is an error, not a no-op, so
+      # the failure is swallowed the same way the Pages project create is.
+      #
+      # Needs Queues:Edit on CLOUDFLARE_API_TOKEN. Without it the create is
+      # skipped here and the deploy below fails loudly rather than shipping a
+      # Worker with a binding that goes nowhere.
+      - name: Create queues
+        run: |
+          for QUEUE in task-tracker-reminders task-tracker-digest task-tracker-digest-dlq task-tracker-briefing task-tracker-events; do
+            if npx wrangler queues create "$QUEUE"; then
+              echo "Created $QUEUE"
+            else
+              echo "$QUEUE already exists (or could not be created — the deploy step will say so)"
+            fi
+          done
+        working-directory: server
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+
+      # The KV cache namespace, checked rather than created.
+      #
+      # Unlike a queue, a KV namespace is bound by *id*, and that id is in
+      # wrangler.toml — in git. So this step cannot self-heal the way the queue
+      # step above does: creating a namespace here would produce an id nothing
+      # references. What it can do is fail before the upload rather than after,
+      # so a Worker is never left live with a binding that goes nowhere. The
+      # probe is a cheap listing, which fails if and only if the binding in
+      # wrangler.toml does not resolve to a namespace this token can read.
+      #
+      # wrangler's own output is echoed on failure, and that is the point of
+      # the step rather than an aside: exactly two things make this fail — the
+      # namespace is genuinely missing, or the token lacks Workers KV Storage —
+      # and only wrangler's message distinguishes them. Swallowing it (the
+      # first version of this step sent stderr to /dev/null) left a reader with
+      # a hint naming both causes and no evidence for either.
+      - name: Verify KV namespace
+        run: |
+          if OUTPUT=$(npx wrangler kv key list --binding CACHE --remote --prefix __kv_meta 2>&1); then
+            echo "CACHE namespace resolves — continuing."
+          else
+            echo "$OUTPUT"
+            echo "::error::Could not read the CACHE namespace bound in server/wrangler.toml — see wrangler's output above. Either CLOUDFLARE_API_TOKEN is missing the Workers KV Storage:Edit permission (an authentication or authorization error), or the namespace id does not exist on this account (create one with 'npx wrangler kv namespace create task-tracker-cache' and put the id it prints into the [[kv_namespaces]] block)."
+            exit 1
+          fi
+        working-directory: server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Deploy the Worker. Wrangler deploy is atomic — the new version
+      # only goes live after a successful upload. R2 bucket binding is
+      # declared in wrangler.toml and provisioned once via dashboard/CLI.
+      - name: Deploy Worker
+        run: npx wrangler deploy
+        working-directory: server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+
+      # KV migrations, and note that these run *after* the upload while the D1
+      # ones run before it. That is not an oversight: nothing in the KV
+      # namespace is a source of truth — every value is a read-through cache of
+      # something D1 or Cloudflare Access already holds — so a KV migration can
+      # never be a precondition for the new code being correct, only a tidy-up
+      # after it.
+      #
+      # The version sweep in particular has to run afterwards. It deletes keys
+      # belonging to a superseded KV_SCHEMA_VERSION, and until the upload lands
+      # those "abandoned" keys are still the ones the live Worker is reading.
+      #
+      # Idempotent like the D1 step: applied migrations are recorded in the
+      # namespace itself, so merging a file in server/kv-migrations/ is all it
+      # takes to ship it. See server/kv-migrations/README.md.
+      - name: Apply KV migrations
+        run: npm run kv:migrate:remote
+        working-directory: server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+
+      # One-time Web Push (VAPID) keypair, for the task reminder cron. Generated here rather than by hand — this deploy is the only
+      # place with both Node and Cloudflare API access — and guarded by
+      # `wrangler secret list` so it never regenerates: a browser's push
+      # subscription is tied to the public key it subscribed with, so
+      # rotating this keypair would silently break every device that already
+      # turned reminders on. Runs after the deploy above because `wrangler
+      # secret put` needs the Worker to already exist.
+      - name: Set up VAPID keys (one-time)
+        run: |
+          if npx wrangler secret list | grep -q '"name": *"VAPID_PUBLIC_KEY"'; then
+            echo "VAPID keys already set — skipping."
+          else
+            echo "No VAPID keys yet — generating a keypair for Web Push."
+            KEYS=$(node scripts/generate-vapid-keys.mjs)
+            PUBLIC_KEY=$(echo "$KEYS" | grep '^VAPID_PUBLIC_KEY=' | cut -d= -f2)
+            PRIVATE_KEY=$(echo "$KEYS" | grep '^VAPID_PRIVATE_KEY=' | cut -d= -f2)
+            echo "::add-mask::$PRIVATE_KEY"
+            printf '%s' "$PUBLIC_KEY" | npx wrangler secret put VAPID_PUBLIC_KEY
+            printf '%s' "$PRIVATE_KEY" | npx wrangler secret put VAPID_PRIVATE_KEY
+            printf '%s' "${{ vars.VAPID_SUBJECT || 'mailto:michaelefaherty@gmail.com' }}" | npx wrangler secret put VAPID_SUBJECT
+          fi
+        working-directory: server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Purge cached responses for the API domain
+      - name: Purge Cloudflare cache
+        run: |
+          ZONE_RESPONSE=$(curl -s -X GET \
+            "https://api.cloudflare.com/client/v4/zones?name=${{ env.ZONE_NAME }}" \
+            -H "Authorization: Bearer ${{ env.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json")
+          ZONE_ID=$(echo "$ZONE_RESPONSE" | jq -r '.result[0].id // ""')
+          if [ -z "$ZONE_ID" ]; then
+            echo "Failed to get zone ID for ${{ env.ZONE_NAME }}"
+            exit 1
+          fi
+
+          PURGE_RESPONSE=$(curl -s -X POST \
+            "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache" \
+            -H "Authorization: Bearer ${{ env.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"hosts": ["${{ env.PURGE_DOMAIN }}"]}')
+          SUCCESS=$(echo "$PURGE_RESPONSE" | jq -r '.success // "false"' 2>/dev/null)
+          if [ "$SUCCESS" != "true" ]; then
+            echo "Failed to purge cache: $(echo "$PURGE_RESPONSE" | jq -c '.errors // []')"
+            exit 1
+          fi
+          echo "Cache purged for ${{ env.PURGE_DOMAIN }}"

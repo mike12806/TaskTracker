@@ -1,0 +1,3 @@
+# Local development only. Copy to .dev.vars (gitignored).
+# Skips Cloudflare Access: requests are treated as X-Dev-Email (default dev@example.com).
+DEV_MODE=true

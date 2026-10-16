@@ -1,0 +1,155 @@
+name = "task-tracker-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+routes = [
+  { pattern = "tasks.mfaherty.net/api/*", zone_name = "mfaherty.net" }
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "task-tracker-db"
+database_id = "b45ffa48-0053-44e8-aaca-4915d3c42e6b"
+migrations_dir = "migrations"
+
+# Read-through cache in front of D1 and the Cloudflare Access JWKS. See
+# src/kv/cache.ts for the rule about what may live in it — briefly: only values
+# derived from something else, and only where an answer up to a minute behind
+# is still a correct answer. Tasks are never cached here: a task ticked off on
+# the phone has to be gone from the laptop's list on its next refresh, which is
+# exactly what KV's eventual consistency cannot promise.
+#
+# What does qualify: the Access signing keys (a subrequest on every
+# authenticated request otherwise), the caller's `users` row, and the daily
+# briefing (written once a day, read on every Today load).
+#
+# KV has no migrations of its own, so this repo brings its own runner —
+# scripts/kv-migrate.mjs, run by deploy-server.yml after every deploy. See
+# kv-migrations/README.md.
+[[kv_namespaces]]
+binding = "CACHE"
+id = "ce8cd8daeea24f9da066397b92a353b6"
+
+# Live updates — one Durable Object per user, holding the open WebSockets for
+# every device that user has the app open on (phone, laptop, tablet). See
+# src/live.ts. Hibernation API, so an idle socket bills no duration.
+[[durable_objects.bindings]]
+name = "LIVE"
+class_name = "UserLive"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["UserLive"]
+
+# Reminder pushes. The every-minute cron claims each task whose reminder has
+# come due and enqueues one job per subscribed device; the consumer does the
+# Web Push send, so a push-service hiccup is retried for that one device
+# without re-deciding anything or re-notifying the others.
+#
+# No dead letter queue: the in-app alert row is written at the claim, before
+# anything is queued, so a push that exhausts its retries has still left the
+# reminder on the bell.
+[[queues.producers]]
+queue = "task-tracker-reminders"
+binding = "REMINDER_QUEUE"
+
+[[queues.consumers]]
+queue = "task-tracker-reminders"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 3
+# Short, unlike BabyTracker's daily queues: a reminder is about a moment, and
+# one that lands ten minutes late has lost most of its point.
+retry_delay = 30
+
+# The morning digest email. The hourly cron enqueues one message when it is
+# the user's digest hour in their own timezone; the consumer renders and sends
+# it via SES. Retried, then dead-lettered.
+[[queues.producers]]
+queue = "task-tracker-digest"
+binding = "DIGEST_QUEUE"
+
+[[queues.consumers]]
+queue = "task-tracker-digest"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+retry_delay = 300
+dead_letter_queue = "task-tracker-digest-dlq"
+
+# A digest that exhausted its retries is reported to ALERT_EMAIL rather than
+# sitting unseen until its retention expires — same as BabyTracker's summary.
+[[queues.consumers]]
+queue = "task-tracker-digest-dlq"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+retry_delay = 300
+
+# Daily briefing generation. The cron writes the template briefing first (so
+# the Today card always has something true on it) and enqueues the model call;
+# the consumer replaces it when the AI version arrives. No DLQ — an exhausted
+# retry has already left a correct fallback and source = 'fallback' in the row.
+[[queues.producers]]
+queue = "task-tracker-briefing"
+binding = "BRIEFING_QUEUE"
+
+[[queues.consumers]]
+queue = "task-tracker-briefing"
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
+retry_delay = 60
+
+# The domain event bus: a write says what happened (task.created,
+# task.completed, ...) and src/events/subscribers.ts decides what follows.
+# One queue with a dispatching consumer; every subscriber must be idempotent.
+[[queues.producers]]
+queue = "task-tracker-events"
+binding = "EVENTS"
+
+[[queues.consumers]]
+queue = "task-tracker-events"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 3
+retry_delay = 10
+
+# Workers AI, for the daily briefing. One generation per user per day, cached
+# in D1 — opening the app never reaches the model.
+[ai]
+binding = "AI"
+
+[triggers]
+# Two crons, told apart by `event.cron` in src/index.ts:
+#   every minute — claims due reminders (scheduled/reminders.ts). A reminder
+#     set for 9:00 should buzz at 9:00, not 9:04, so this is the one place the
+#     interval is about latency rather than cost: 1,440 invocations a day, each
+#     a single indexed UPDATE that almost always matches nothing.
+#   hourly — the digest hour check (scheduled/digest.ts) plus housekeeping. It
+#     runs every hour rather than at a fixed UTC time because "7am" is a local
+#     time: the handler compares the user's own timezone and digest hour, so a
+#     DST change or a trip to another timezone needs no cron edit.
+crons = ["* * * * *", "0 * * * *"]
+
+[vars]
+CF_ACCESS_TEAM_DOMAIN = "mfaherty.cloudflareaccess.com"
+# The Cloudflare Access application's audience tag for tasks.mfaherty.net.
+# deploy-server.yml refuses to deploy while this is still the placeholder.
+CF_ACCESS_AUD = "REPLACE_WITH_ACCESS_AUD"
+AWS_SES_REGION = "us-east-1"
+# Override to write the daily briefing with a different Workers AI model.
+# Defaults to the chain in src/scheduled/briefing.ts.
+# BRIEFING_MODEL = "@cf/google/gemma-4-26b-a4b-it"
+
+# For local dev, create server/.dev.vars:
+#   DEV_MODE=true
+# Secrets (never in wrangler.toml — set via CLI):
+#   wrangler secret put AWS_SES_ACCESS_KEY   # optional, for the email digest
+#   wrangler secret put AWS_SES_SECRET_KEY
+#   wrangler secret put REPORT_FROM_EMAIL    # verified SES sender
+#   wrangler secret put ALERT_EMAIL          # optional, defaults to REPORT_FROM_EMAIL
+#
+# VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT (Web Push) are set
+# automatically by deploy-server.yml the first time it runs, and never
+# regenerated: rotating them would break every device that already subscribed.

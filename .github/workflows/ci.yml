@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Lets a run be started by hand against any ref. Without it, a PR whose
+  # checks never got created — a branch name reused after its previous PR was
+  # merged and the branch auto-deleted will do it, the check suite latches
+  # onto the stale run — can only be unstuck by pushing another commit, since
+  # the required checks are "expected" rather than failing and there is
+  # nothing to re-run.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-server:
+    name: Server Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check server
+        run: npx tsc --noEmit -p server/tsconfig.json
+
+      - name: Run server tests
+        run: npm run test -w server
+
+      # Applies the KV migrations against Miniflare's local KV: no credentials,
+      # no network, nothing touched on the account. It says nothing about the
+      # state of the production namespace — that is the deploy's job — but it
+      # does catch the failure that would otherwise only surface halfway
+      # through a deploy: a migration file that throws, or one the runner
+      # cannot load at all.
+      - name: Apply KV migrations (local)
+        run: npm run kv:migrate -w server
+
+  test-client:
+    name: Client Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check client
+        run: npx tsc --noEmit -p client/tsconfig.json
+
+      - name: Run client tests
+        run: npm run test -w client
+
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    needs: [test-server, test-client]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build client
+        run: npm run build:client
+
+      - name: Build server
+        run: npm run build:server

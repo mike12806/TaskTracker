@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "internalChecksFilter": "strict",
+  "minimumReleaseAge": "3 days",
+  "packageRules": [
+    {
+      "description": "Enforce pinned versions for npm packages",
+      "matchDatasources": ["npm"],
+      "rangeStrategy": "pin",
+      "automerge": false
+    },
+    {
+      "description": "Pin GitHub Actions to commit SHA",
+      "matchDatasources": ["github-tags"],
+      "pinDigests": true
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "The server's tests run inside workerd through @cloudflare/vitest-pool-workers, which peers on vitest ^4 — vitest 5 there fails every test file at pool startup. Drop this rule once the pool ships vitest 5 support.",
+      "matchFileNames": ["server/package.json"],
+      "matchPackageNames": ["vitest"],
+      "allowedVersions": "<5"
+    }
+  ]
+}

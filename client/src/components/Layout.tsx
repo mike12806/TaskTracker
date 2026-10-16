@@ -1,0 +1,353 @@
+import { useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import {
+  Alert,
+  AppBar,
+  Badge,
+  Box,
+  Button,
+  Divider,
+  Drawer,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  ListSubheader,
+  SwipeableDrawer,
+  Toolbar,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
+import TodayRoundedIcon from "@mui/icons-material/TodayRounded";
+import EventRoundedIcon from "@mui/icons-material/EventRounded";
+import InboxRoundedIcon from "@mui/icons-material/InboxRounded";
+import ChecklistRoundedIcon from "@mui/icons-material/ChecklistRounded";
+import TaskAltRoundedIcon from "@mui/icons-material/TaskAltRounded";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import CircleIcon from "@mui/icons-material/Circle";
+import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
+import ErrorBoundary from "./ErrorBoundary";
+import PendingSyncBanner from "./PendingSyncBanner";
+import PushNotificationsNudge from "./PushNotificationsNudge";
+import AlertsBell from "./AlertsBell";
+import TaskDialog, { type TaskDefaults } from "./TaskDialog";
+import ListDialog from "./ListDialog";
+import { useAuth } from "../hooks/useAuth";
+import { useDataFreshness } from "../hooks/useDataFreshness";
+import { useDataRefresh } from "../hooks/useDataRefresh";
+import { useLists } from "../hooks/useLists";
+import { useTasks } from "../hooks/useTasks";
+import { formatRelativeTime } from "../utils/dateTime";
+import { addDaysStr, todayStr } from "../utils/taskDates";
+
+const DRAWER_WIDTH = 260;
+const BOTTOM_NAV_HEIGHT = 68;
+const APPBAR_HEIGHT_MOBILE = 48;
+const APPBAR_HEIGHT_DESKTOP = 56;
+
+/** What the add button pre-fills, from the page it was tapped on. */
+function defaultsForPath(pathname: string): TaskDefaults {
+  if (pathname === "/") return { due_date: todayStr() };
+  if (pathname === "/upcoming") return { due_date: addDaysStr(todayStr(), 1) };
+  const list = pathname.match(/^\/lists\/(\d+)/);
+  if (list) return { list_id: Number(list[1]) };
+  return {};
+}
+
+export default function Layout() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [newList, setNewList] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const { lists, inboxCount } = useLists();
+  const { tasks } = useTasks();
+  const { staleSince } = useDataFreshness();
+  const { refreshData } = useDataRefresh();
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
+  const isDark = muiTheme.palette.mode === "dark";
+
+  const today = todayStr();
+  const todayCount = tasks.filter((t) => t.due_date !== null && t.due_date <= today).length;
+  const upcomingCount = tasks.filter((t) => t.due_date !== null && t.due_date > today).length;
+
+  const go = (path: string) => {
+    navigate(path);
+    if (isMobile) setDrawerOpen(false);
+  };
+
+  const navItems = [
+    { label: "Today", icon: <TodayRoundedIcon />, path: "/", count: todayCount },
+    { label: "Upcoming", icon: <EventRoundedIcon />, path: "/upcoming", count: upcomingCount },
+    { label: "Inbox", icon: <InboxRoundedIcon />, path: "/inbox", count: inboxCount },
+    { label: "All tasks", icon: <ChecklistRoundedIcon />, path: "/all", count: tasks.length },
+    { label: "Completed", icon: <TaskAltRoundedIcon />, path: "/completed" },
+    { label: "Search", icon: <SearchRoundedIcon />, path: "/search" },
+  ];
+
+  const navLabel = (label: string, selected: boolean) => (
+    <ListItemText
+      primary={label}
+      slotProps={{ primary: { sx: { fontSize: 14.5, fontWeight: selected ? 600 : 500, letterSpacing: "-0.005em" }, noWrap: true } }}
+    />
+  );
+
+  const count = (n?: number) =>
+    n ? (
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        {n}
+      </Typography>
+    ) : null;
+
+  const drawer = (
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100%", bgcolor: "background.paper" }}>
+      <Box sx={{ minHeight: { xs: `calc(${APPBAR_HEIGHT_MOBILE}px + env(safe-area-inset-top))`, md: `${APPBAR_HEIGHT_DESKTOP}px` } }} />
+      <List sx={{ py: 1 }}>
+        {navItems.map((item) => {
+          const selected = location.pathname === item.path;
+          return (
+            <ListItemButton key={item.path} selected={selected} onClick={() => go(item.path)} sx={{ py: 0.9 }}>
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              {navLabel(item.label, selected)}
+              {count(item.count)}
+            </ListItemButton>
+          );
+        })}
+      </List>
+      <Divider />
+      <List
+        sx={{ flex: 1, overflowY: "auto", py: 0.5 }}
+        subheader={
+          <ListSubheader sx={{ bgcolor: "background.paper", lineHeight: "36px", fontWeight: 700, letterSpacing: "0.04em" }}>
+            LISTS
+          </ListSubheader>
+        }
+      >
+        {lists.map((list) => {
+          const path = `/lists/${list.id}`;
+          const selected = location.pathname === path;
+          return (
+            <ListItemButton key={list.id} selected={selected} onClick={() => go(path)} sx={{ py: 0.8 }}>
+              <ListItemIcon>
+                <CircleIcon sx={{ fontSize: 12, color: list.color, ml: 0.5 }} />
+              </ListItemIcon>
+              {navLabel(list.name, selected)}
+              {count(list.open_count)}
+            </ListItemButton>
+          );
+        })}
+        <ListItemButton onClick={() => setNewList(true)} sx={{ py: 0.8, color: "text.secondary" }}>
+          <ListItemIcon>
+            <AddRoundedIcon fontSize="small" />
+          </ListItemIcon>
+          {navLabel("New list", false)}
+        </ListItemButton>
+      </List>
+      <Divider />
+      <List sx={{ py: 0.5 }}>
+        <ListItemButton selected={location.pathname === "/settings"} onClick={() => go("/settings")} sx={{ py: 0.9 }}>
+          <ListItemIcon>
+            <SettingsRoundedIcon />
+          </ListItemIcon>
+          {navLabel("Settings", location.pathname === "/settings")}
+        </ListItemButton>
+      </List>
+    </Box>
+  );
+
+  const bottomTabs = [
+    { id: "today", label: "Today", icon: <TodayRoundedIcon />, path: "/" },
+    { id: "upcoming", label: "Upcoming", icon: <EventRoundedIcon />, path: "/upcoming" },
+    { id: "add", label: "Add", icon: <AddRoundedIcon sx={{ fontSize: 28 }} />, path: null },
+    { id: "inbox", label: "Inbox", icon: <InboxRoundedIcon />, path: "/inbox" },
+    { id: "more", label: "More", icon: <MoreHorizRoundedIcon />, path: null },
+  ];
+
+  return (
+    <Box sx={{ display: "flex" }}>
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, paddingTop: "env(safe-area-inset-top)" }}>
+        <Toolbar variant="dense" sx={{ minHeight: { xs: APPBAR_HEIGHT_MOBILE, md: APPBAR_HEIGHT_DESKTOP }, px: { xs: 1, sm: 1.5 } }}>
+          <IconButton
+            color="inherit"
+            edge="start"
+            size="small"
+            onClick={() => setDrawerOpen(!drawerOpen)}
+            sx={{ mr: 1, display: { md: "none" }, minWidth: 36, minHeight: 36 }}
+            aria-label="open navigation drawer"
+          >
+            <MenuIcon sx={{ fontSize: 22 }} />
+          </IconButton>
+          <Typography sx={{ flexGrow: 1, fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }} noWrap>
+            Tasks
+          </Typography>
+          <IconButton
+            color="inherit"
+            size="small"
+            onClick={() => navigate("/search")}
+            aria-label="Search"
+            sx={{ minWidth: 36, minHeight: 36, display: { xs: "none", md: "inline-flex" } }}
+          >
+            <SearchRoundedIcon />
+          </IconButton>
+          {/* Reminders as a list: a push that was swiped away, or never
+              delivered to this device, is still readable here. */}
+          <AlertsBell />
+          <Button
+            color="inherit"
+            size="small"
+            startIcon={<AddRoundedIcon />}
+            onClick={() => setAdding(true)}
+            sx={{ display: { xs: "none", md: "inline-flex" }, ml: 1 }}
+          >
+            New task
+          </Button>
+        </Toolbar>
+      </AppBar>
+
+      <SwipeableDrawer
+        variant="temporary"
+        open={drawerOpen}
+        onOpen={() => setDrawerOpen(true)}
+        onClose={() => setDrawerOpen(false)}
+        sx={{ display: { xs: "block", md: "none" }, "& .MuiDrawer-paper": { width: DRAWER_WIDTH, boxSizing: "border-box" } }}
+      >
+        {drawer}
+      </SwipeableDrawer>
+      <Drawer
+        variant="permanent"
+        open
+        sx={{ display: { xs: "none", md: "block" }, "& .MuiDrawer-paper": { width: DRAWER_WIDTH, boxSizing: "border-box" } }}
+      >
+        {drawer}
+      </Drawer>
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: { xs: 1.5, sm: 3 },
+          ml: { md: `${DRAWER_WIDTH}px` },
+          mt: { xs: `calc(${APPBAR_HEIGHT_MOBILE}px + env(safe-area-inset-top))`, md: `${APPBAR_HEIGHT_DESKTOP}px` },
+          pb: { xs: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 16px)`, md: 3 },
+          minHeight: { xs: `calc(100vh - ${APPBAR_HEIGHT_MOBILE}px)`, md: `calc(100vh - ${APPBAR_HEIGHT_DESKTOP}px)` },
+          maxWidth: "100%",
+          overflow: "hidden",
+        }}
+      >
+        {/* Nothing caches API data, so what's on screen is whatever the last
+            successful refresh brought back. The moment a refresh fails, its
+            age is said out loud rather than left to look live. */}
+        {staleSince !== null && (
+          <Alert
+            severity="warning"
+            variant="outlined"
+            sx={{ mb: 2, alignItems: "center" }}
+            action={
+              <Button color="inherit" size="small" onClick={refreshData}>
+                Retry
+              </Button>
+            }
+          >
+            Can't reach the server — showing tasks from {formatRelativeTime(new Date(staleSince).toISOString())}. Changes
+            made on other devices aren't here yet; retrying automatically.
+          </Alert>
+        )}
+        {/* The same honesty the other way: what this device has that the
+            server hasn't. */}
+        <PendingSyncBanner />
+        {/* Keyed on the route so navigating away clears a crashed page. */}
+        <ErrorBoundary key={location.pathname} scope="This page failed to load">
+          <Outlet />
+        </ErrorBoundary>
+      </Box>
+
+      {/* Mobile bottom navigation, with the add button in the middle. */}
+      <Box
+        sx={{
+          display: { xs: "block", md: "none" },
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: (theme) => theme.zIndex.appBar,
+          paddingBottom: "env(safe-area-inset-bottom)",
+          borderTop: 1,
+          borderColor: "divider",
+          bgcolor: isDark ? "rgba(12, 16, 24, 0.86)" : "rgba(255, 255, 255, 0.92)",
+          backdropFilter: "blur(16px) saturate(180%)",
+          WebkitBackdropFilter: "blur(16px) saturate(180%)",
+        }}
+      >
+        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", height: BOTTOM_NAV_HEIGHT, alignItems: "center" }}>
+          {bottomTabs.map((tab) => {
+            if (tab.id === "add") {
+              return (
+                <Box key={tab.id} sx={{ display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
+                  <Box
+                    role="button"
+                    aria-label="New task"
+                    onClick={() => setAdding(true)}
+                    sx={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: "18px",
+                      mt: "-22px",
+                      bgcolor: "primary.main",
+                      color: isDark ? "#0c1018" : "#ffffff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: isDark ? "0 8px 22px rgba(165, 180, 252, 0.45)" : "0 8px 22px rgba(91, 93, 255, 0.35)",
+                      border: 4,
+                      borderColor: isDark ? "#0c1018" : "#ffffff",
+                      cursor: "pointer",
+                      "&:active": { transform: "scale(0.92)" },
+                    }}
+                  >
+                    {tab.icon}
+                  </Box>
+                </Box>
+              );
+            }
+            const active = tab.path ? location.pathname === tab.path : false;
+            const badge = tab.id === "today" ? todayCount : 0;
+            return (
+              <Box
+                key={tab.id}
+                role="button"
+                aria-label={tab.label}
+                onClick={() => (tab.path ? navigate(tab.path) : setDrawerOpen(true))}
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "3px",
+                  py: 0.5,
+                  color: active ? "text.primary" : "text.secondary",
+                  cursor: "pointer",
+                  "&:active": { opacity: 0.7 },
+                }}
+              >
+                <Badge badgeContent={badge} color="primary" max={99}>
+                  {tab.icon}
+                </Badge>
+                <Typography sx={{ fontSize: 10.5, fontWeight: active ? 700 : 500, letterSpacing: "-0.005em" }}>{tab.label}</Typography>
+              </Box>
+            );
+          })}
+        </Box>
+      </Box>
+
+      <TaskDialog open={adding} task={null} defaults={defaultsForPath(location.pathname)} onClose={() => setAdding(false)} />
+      <ListDialog open={newList} list={null} onClose={() => setNewList(false)} />
+      {user && <PushNotificationsNudge />}
+    </Box>
+  );
+}
