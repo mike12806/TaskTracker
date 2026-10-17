@@ -130,12 +130,11 @@ Already done: the D1 database (`task-tracker-db`) and the KV namespace
 
 Still needed before the first deploy:
 
-1. **Cloudflare Access application** — a self-hosted application on
-   `tasks.mfaherty.net` (hostname-based, *not* Worker-level: a Worker-level
-   policy rejects WebSocket upgrades). Policy: allow only your email. Copy its
-   **Application Audience (AUD) tag** into `CF_ACCESS_AUD` in
-   `server/wrangler.toml`. Both deploy workflows refuse to run while it is the
-   placeholder.
+1. **Cloudflare Access application** — done. It is managed as code in gh_hdc
+   (`terraform/cloudflare-access`): a self-hosted, hostname-based app on
+   `tasks.mfaherty.net` with an owner-only policy. Its AUD tag is
+   `CF_ACCESS_AUD` in `server/wrangler.toml`. (Hostname-based on purpose: a
+   Worker-level Access policy rejects WebSocket upgrades.)
 2. **Vault** — the `tasktracker-deploy` role and policy (gh_hdc `vault/`), and the
    secret `kv/github/TaskTracker/cloudflare` with `CLOUDFLARE_API_TOKEN` and
    `CLOUDFLARE_ACCOUNT_ID`. The token needs Workers Scripts, D1, Queues, Workers

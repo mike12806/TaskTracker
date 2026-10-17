@@ -134,9 +134,11 @@ crons = ["* * * * *", "0 * * * *"]
 
 [vars]
 CF_ACCESS_TEAM_DOMAIN = "mfaherty.cloudflareaccess.com"
-# The Cloudflare Access application's audience tag for tasks.mfaherty.net.
-# deploy-server.yml refuses to deploy while this is still the placeholder.
-CF_ACCESS_AUD = "REPLACE_WITH_ACCESS_AUD"
+# The audience (AUD) tag of the Access application for tasks.mfaherty.net.
+# That application is managed as code in gh_hdc (terraform/cloudflare-access,
+# resource cloudflare_zero_trust_access_application.tasks); every run of its
+# workflow prints this value. It only changes if the app is recreated.
+CF_ACCESS_AUD = "6854acafa08f47b8d66a6991c7acaab4e4596908fdd204034bbef21c1cbaee43"
 AWS_SES_REGION = "us-east-1"
 # Override to write the daily briefing with a different Workers AI model.
 # Defaults to the chain in src/scheduled/briefing.ts.
