@@ -5,6 +5,7 @@ import { createEntry, discardPendingRow, isPending } from "../api/outbox";
 import { useDataRefresh } from "./useDataRefresh";
 import { usePendingRows } from "./useOutbox";
 import { useNotification } from "./useNotification";
+import { useLists } from "./useLists";
 import { QUEUED_SAVE_MESSAGE, QUEUED_SAVE_SEVERITY } from "../utils/saveOutcome";
 import { compareTasks } from "../utils/taskDates";
 import type { Task, TaskInput } from "../types/models";
@@ -57,6 +58,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const { refreshKey, refreshData } = useDataRefresh();
   const { notify, notifyWithAction } = useNotification();
   const pending = usePendingRows<Task>("tasks");
+  const { listById } = useLists();
   const [serverTasks, setServerTasks] = useState<Task[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -89,9 +91,19 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const tasks = useMemo(() => {
     // A queued body carries only the fields the form sent; fill in the rest
     // the way the server's column defaults would.
-    const queued = pending.map((row) => ({ ...QUEUED_TASK_DEFAULTS, ...row }) as Task);
+    // A queued task added to a list sent no area of its own — the server
+    // takes the list's — so it gets the list's here too, or the area filter
+    // would hide it.
+    const queued = pending.map((row) => {
+      const task = { ...QUEUED_TASK_DEFAULTS, ...row } as Task;
+      if (task.area_id == null && task.list_id != null) {
+        const areaId = listById(task.list_id)?.area_id;
+        if (areaId) task.area_id = areaId;
+      }
+      return task;
+    });
     return [...queued, ...serverTasks.filter((t) => !hidden.has(t.id))].sort(compareTasks);
-  }, [pending, serverTasks, hidden]);
+  }, [pending, serverTasks, hidden, listById]);
 
   const hide = (id: number, on: boolean) =>
     setHidden((prev) => {

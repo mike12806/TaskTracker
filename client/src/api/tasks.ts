@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { Briefing, Task, TaskInput, TaskList, UserSettings } from "../types/models";
+import type { Area, Briefing, Task, TaskInput, TaskList, UserSettings } from "../types/models";
 
 /**
  * The task API, in one place — components never call `fetch` (or even `api`)
@@ -14,15 +14,22 @@ export function fetchOpenTasks(): Promise<Task[]> {
   return api.get<Task[]>("/tasks");
 }
 
-/** Completed tasks, newest first; pass the last row's `completed_at` to page. */
-export function fetchCompletedTasks(before?: string): Promise<Task[]> {
+/**
+ * Completed tasks, newest first; pass the last row's `completed_at` to page.
+ * Filtered by area on the server, because paging a filter applied on the
+ * device would show half-empty pages.
+ */
+export function fetchCompletedTasks(before?: string, areaId?: number | null): Promise<Task[]> {
   const params = new URLSearchParams({ status: "completed", limit: "50" });
   if (before) params.set("before", before);
+  if (areaId) params.set("area_id", String(areaId));
   return api.get<Task[]>(`/tasks?${params}`);
 }
 
-export function searchTasks(q: string, status: "open" | "completed"): Promise<Task[]> {
-  return api.get<Task[]>(`/tasks?${new URLSearchParams({ q, status })}`);
+export function searchTasks(q: string, status: "open" | "completed", areaId?: number | null): Promise<Task[]> {
+  const params = new URLSearchParams({ q, status });
+  if (areaId) params.set("area_id", String(areaId));
+  return api.get<Task[]>(`/tasks?${params}`);
 }
 
 export function updateTask(id: number, changes: Partial<TaskInput>): Promise<Task> {
@@ -48,22 +55,41 @@ export function snoozeTask(id: number, minutes: number): Promise<Task> {
 export interface ListsResponse {
   lists: TaskList[];
   inbox_count: number;
+  /** Open Inbox tasks per area id. */
+  inbox_counts: Record<string, number>;
 }
 
 export function fetchLists(): Promise<ListsResponse> {
   return api.get<ListsResponse>("/lists");
 }
 
-export function createList(name: string, color: string, clientRequestId: string): Promise<TaskList> {
-  return api.post<TaskList>("/lists", { name, color, client_request_id: clientRequestId });
+export function createList(name: string, color: string, areaId: number, clientRequestId: string): Promise<TaskList> {
+  return api.post<TaskList>("/lists", { name, color, area_id: areaId, client_request_id: clientRequestId });
 }
 
-export function updateList(id: number, changes: Partial<Pick<TaskList, "name" | "color" | "position">>): Promise<TaskList> {
+export function updateList(id: number, changes: Partial<Pick<TaskList, "name" | "color" | "position" | "area_id">>): Promise<TaskList> {
   return api.put<TaskList>(`/lists/${id}`, changes);
 }
 
 export function deleteList(id: number): Promise<{ ok: boolean }> {
   return api.delete<{ ok: boolean }>(`/lists/${id}`);
+}
+
+export function fetchAreas(): Promise<Area[]> {
+  return api.get<Area[]>("/areas");
+}
+
+export function createArea(name: string, color: string, clientRequestId: string): Promise<Area> {
+  return api.post<Area>("/areas", { name, color, client_request_id: clientRequestId });
+}
+
+export function updateArea(id: number, changes: Partial<Pick<Area, "name" | "color" | "position">>): Promise<Area> {
+  return api.put<Area>(`/areas/${id}`, changes);
+}
+
+/** Deletes the area; its lists and tasks move to `moveTo`. */
+export function deleteArea(id: number, moveTo: number): Promise<{ ok: boolean }> {
+  return api.delete<{ ok: boolean }>(`/areas/${id}?move_to=${moveTo}`);
 }
 
 export function updateSettings(changes: Partial<Omit<UserSettings, "user_id">>): Promise<UserSettings> {

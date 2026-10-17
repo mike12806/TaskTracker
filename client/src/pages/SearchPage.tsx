@@ -6,6 +6,7 @@ import TaskDialog from "../components/TaskDialog";
 import { searchTasks } from "../api/tasks";
 import { useTasks } from "../hooks/useTasks";
 import { useDataRefresh } from "../hooks/useDataRefresh";
+import { useAreas } from "../hooks/useAreas";
 import type { Task } from "../types/models";
 
 /**
@@ -15,6 +16,8 @@ import type { Task } from "../types/models";
 export default function SearchPage() {
   const { tasks, complete } = useTasks();
   const { refreshKey } = useDataRefresh();
+  const { selected, inSelection } = useAreas();
+  const areaId = selected === "all" ? null : selected;
   const [q, setQ] = useState("");
   const [scope, setScope] = useState<"open" | "completed">("open");
   const [completed, setCompleted] = useState<Task[]>([]);
@@ -27,15 +30,17 @@ export default function SearchPage() {
       return;
     }
     const timer = setTimeout(() => {
-      searchTasks(term, "completed").then(setCompleted, () => {});
+      searchTasks(term, "completed", areaId).then(setCompleted, () => {});
     }, 250);
     return () => clearTimeout(timer);
-  }, [scope, term, refreshKey]);
+  }, [scope, term, refreshKey, areaId]);
 
   const results =
     scope === "open"
       ? term
-        ? tasks.filter((t) => t.title.toLowerCase().includes(term) || (t.notes ?? "").toLowerCase().includes(term))
+        ? tasks.filter(
+            (t) => inSelection(t.area_id) && (t.title.toLowerCase().includes(term) || (t.notes ?? "").toLowerCase().includes(term)),
+          )
         : []
       : completed;
 

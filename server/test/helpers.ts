@@ -7,12 +7,14 @@ import { cacheControlMiddleware } from "../src/middleware/cacheControl.js";
 import { auth } from "../src/routes/auth.js";
 import { tasks } from "../src/routes/tasks.js";
 import { lists } from "../src/routes/lists.js";
+import { areas } from "../src/routes/areas.js";
 import { settings } from "../src/routes/settings.js";
 import { alerts } from "../src/routes/alerts.js";
 import { push } from "../src/routes/push.js";
 import { briefing } from "../src/routes/briefing.js";
 import { live } from "../src/routes/live.js";
 import migration0001 from "../migrations/0001_initial_schema.sql?raw";
+import migration0002 from "../migrations/0002_add_areas.sql?raw";
 
 /**
  * Auth middleware for tests — bypasses JWT verification. Upserts the user
@@ -45,6 +47,7 @@ export function createTestApp() {
   app.route("/api/auth", auth);
   app.route("/api/tasks", tasks);
   app.route("/api/lists", lists);
+  app.route("/api/areas", areas);
   app.route("/api/settings", settings);
   app.route("/api/alerts", alerts);
   app.route("/api/push", push);
@@ -84,6 +87,7 @@ const TABLES = [
   "client_requests",
   "tasks",
   "lists",
+  "areas",
   "user_settings",
   "users",
 ];
@@ -91,7 +95,7 @@ const TABLES = [
 /** Drop and recreate every table from the real migrations, and empty KV. */
 export async function applyMigrations(db: D1Database) {
   const drop = TABLES.map((t) => `DROP TABLE IF EXISTS ${t};`).join("\n");
-  await execScript(db, drop + "\n" + [migration0001].join("\n"));
+  await execScript(db, drop + "\n" + [migration0001, migration0002].join("\n"));
   await resetCache();
 }
 

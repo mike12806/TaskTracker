@@ -4,6 +4,7 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import { useTasks } from "../hooks/useTasks";
 import { useSaveGuard } from "../hooks/useSaveGuard";
 import { useNotification } from "../hooks/useNotification";
+import { useAreas } from "../hooks/useAreas";
 import { parseQuickAdd } from "../utils/quickAdd";
 import type { TaskDefaults } from "./TaskDialog";
 
@@ -20,6 +21,7 @@ export default function QuickAdd({ defaults = {}, placeholder = "Add a task" }: 
   const { create } = useTasks();
   const { saving, save } = useSaveGuard();
   const { notify } = useNotification();
+  const { defaultAreaId } = useAreas();
   const [text, setText] = useState("");
 
   const submit = () => {
@@ -28,6 +30,8 @@ export default function QuickAdd({ defaults = {}, placeholder = "Add a task" }: 
     const body = {
       title: parsed.title,
       list_id: defaults.list_id ?? null,
+      // Into the area on screen — a list brings its own area instead.
+      ...(defaults.list_id ? {} : { area_id: defaults.area_id ?? defaultAreaId }),
       due_date: parsed.due_date ?? defaults.due_date ?? null,
       priority: parsed.priority ?? defaults.priority ?? "none",
     };

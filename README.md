@@ -11,6 +11,9 @@ deploy pipeline, and the same rules about stale data, offline writes and push.
 
 - **Tasks** with notes, priority, a due date and optional time, and a list
   (or the Inbox)
+- **Areas** — Personal and Work to start, renameable and extendable: the level
+  above lists. Each list belongs to an area and each area has its own Inbox; a
+  switcher in the app bar (remembered per device) narrows every view to one
 - **Views** — Today (overdue + due today), Upcoming (grouped by day), Inbox, each
   list, All, Completed, and Search
 - **Reminders** — a push notification at the minute a task's reminder comes due,

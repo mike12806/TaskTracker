@@ -8,6 +8,7 @@ function task(overrides: Partial<Task>): Task {
   return {
     id: 1,
     list_id: null,
+    area_id: 1,
     title: "t",
     notes: null,
     priority: "none",

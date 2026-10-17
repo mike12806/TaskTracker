@@ -14,6 +14,8 @@ import {
   ListItemIcon,
   ListItemText,
   ListSubheader,
+  Menu,
+  MenuItem,
   SwipeableDrawer,
   Toolbar,
   Typography,
@@ -31,6 +33,8 @@ import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import CircleIcon from "@mui/icons-material/Circle";
 import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
+import ArrowDropDownRoundedIcon from "@mui/icons-material/ArrowDropDownRounded";
+import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import ErrorBoundary from "./ErrorBoundary";
 import PendingSyncBanner from "./PendingSyncBanner";
 import PushNotificationsNudge from "./PushNotificationsNudge";
@@ -41,6 +45,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useDataFreshness } from "../hooks/useDataFreshness";
 import { useDataRefresh } from "../hooks/useDataRefresh";
 import { useLists } from "../hooks/useLists";
+import { useAreas } from "../hooks/useAreas";
 import { useTasks } from "../hooks/useTasks";
 import { formatRelativeTime } from "../utils/dateTime";
 import { addDaysStr, todayStr } from "../utils/taskDates";
@@ -50,13 +55,14 @@ const BOTTOM_NAV_HEIGHT = 68;
 const APPBAR_HEIGHT_MOBILE = 48;
 const APPBAR_HEIGHT_DESKTOP = 56;
 
-/** What the add button pre-fills, from the page it was tapped on. */
-function defaultsForPath(pathname: string): TaskDefaults {
-  if (pathname === "/") return { due_date: todayStr() };
-  if (pathname === "/upcoming") return { due_date: addDaysStr(todayStr(), 1) };
+/** What the add button pre-fills, from the page it was tapped on and the area on screen. */
+function defaultsForPath(pathname: string, areaId: number | undefined): TaskDefaults {
   const list = pathname.match(/^\/lists\/(\d+)/);
   if (list) return { list_id: Number(list[1]) };
-  return {};
+  const area = areaId === undefined ? {} : { area_id: areaId };
+  if (pathname === "/") return { ...area, due_date: todayStr() };
+  if (pathname === "/upcoming") return { ...area, due_date: addDaysStr(todayStr(), 1) };
+  return area;
 }
 
 export default function Layout() {
@@ -66,8 +72,14 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { lists, inboxCount } = useLists();
-  const { tasks } = useTasks();
+  const { lists, inboxCount, inboxCounts } = useLists();
+  const { areas, selected, select, areaById, inSelection, defaultAreaId } = useAreas();
+  const [areaMenu, setAreaMenu] = useState<HTMLElement | null>(null);
+  const currentArea = selected === "all" ? undefined : areaById(selected);
+  const { tasks: allTasks } = useTasks();
+  // Every count in the chrome follows the area switcher, like the views do.
+  const tasks = allTasks.filter((t) => inSelection(t.area_id));
+  const areaInboxCount = selected === "all" ? inboxCount : (inboxCounts[String(selected)] ?? 0);
   const { staleSince } = useDataFreshness();
   const { refreshData } = useDataRefresh();
   const muiTheme = useTheme();
@@ -86,7 +98,7 @@ export default function Layout() {
   const navItems = [
     { label: "Today", icon: <TodayRoundedIcon />, path: "/", count: todayCount },
     { label: "Upcoming", icon: <EventRoundedIcon />, path: "/upcoming", count: upcomingCount },
-    { label: "Inbox", icon: <InboxRoundedIcon />, path: "/inbox", count: inboxCount },
+    { label: "Inbox", icon: <InboxRoundedIcon />, path: "/inbox", count: areaInboxCount },
     { label: "All tasks", icon: <ChecklistRoundedIcon />, path: "/all", count: tasks.length },
     { label: "Completed", icon: <TaskAltRoundedIcon />, path: "/completed" },
     { label: "Search", icon: <SearchRoundedIcon />, path: "/search" },
@@ -130,19 +142,34 @@ export default function Layout() {
           </ListSubheader>
         }
       >
-        {lists.map((list) => {
-          const path = `/lists/${list.id}`;
-          const selected = location.pathname === path;
-          return (
-            <ListItemButton key={list.id} selected={selected} onClick={() => go(path)} sx={{ py: 0.8 }}>
-              <ListItemIcon>
-                <CircleIcon sx={{ fontSize: 12, color: list.color, ml: 0.5 }} />
-              </ListItemIcon>
-              {navLabel(list.name, selected)}
-              {count(list.open_count)}
-            </ListItemButton>
-          );
-        })}
+        {/* Lists of the area on screen; with all areas showing, grouped by area. */}
+        {(selected === "all" ? areas : currentArea ? [currentArea] : []).map((area) => (
+          <Box key={area.id}>
+            {selected === "all" && (
+              <Typography
+                variant="caption"
+                sx={{ display: "block", px: 2, pt: 1, pb: 0.25, fontWeight: 700, color: area.color }}
+              >
+                {area.name}
+              </Typography>
+            )}
+            {lists
+              .filter((l) => l.area_id === area.id)
+              .map((list) => {
+                const path = `/lists/${list.id}`;
+                const active = location.pathname === path;
+                return (
+                  <ListItemButton key={list.id} selected={active} onClick={() => go(path)} sx={{ py: 0.8 }}>
+                    <ListItemIcon>
+                      <CircleIcon sx={{ fontSize: 12, color: list.color, ml: 0.5 }} />
+                    </ListItemIcon>
+                    {navLabel(list.name, active)}
+                    {count(list.open_count)}
+                  </ListItemButton>
+                );
+              })}
+          </Box>
+        ))}
         <ListItemButton onClick={() => setNewList(true)} sx={{ py: 0.8, color: "text.secondary" }}>
           <ListItemIcon>
             <AddRoundedIcon fontSize="small" />
@@ -184,9 +211,55 @@ export default function Layout() {
           >
             <MenuIcon sx={{ fontSize: 22 }} />
           </IconButton>
-          <Typography sx={{ flexGrow: 1, fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em" }} noWrap>
-            Tasks
-          </Typography>
+          {/* The area switcher. A view filter for this device only — see
+              hooks/useAreas.tsx — so it lives in the chrome, not in Settings. */}
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Button
+              color="inherit"
+              onClick={(e) => setAreaMenu(e.currentTarget)}
+              endIcon={<ArrowDropDownRoundedIcon />}
+              aria-label="Switch area"
+              sx={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", textTransform: "none", px: 1, minWidth: 0 }}
+            >
+              {currentArea && (
+                <Box component="span" sx={{ width: 9, height: 9, borderRadius: "50%", bgcolor: currentArea.color, mr: 1 }} />
+              )}
+              {currentArea ? currentArea.name : "All areas"}
+            </Button>
+            <Menu anchorEl={areaMenu} open={Boolean(areaMenu)} onClose={() => setAreaMenu(null)}>
+              {[{ id: "all" as const, name: "All areas", color: "transparent" }, ...areas].map((a) => (
+                <MenuItem
+                  key={a.id}
+                  selected={selected === a.id}
+                  onClick={() => {
+                    select(a.id);
+                    setAreaMenu(null);
+                  }}
+                >
+                  <ListItemIcon>
+                    {selected === a.id ? (
+                      <CheckRoundedIcon fontSize="small" />
+                    ) : (
+                      <CircleIcon sx={{ fontSize: 10, color: a.color, ml: 0.5 }} />
+                    )}
+                  </ListItemIcon>
+                  {a.name}
+                </MenuItem>
+              ))}
+              <Divider />
+              <MenuItem
+                onClick={() => {
+                  setAreaMenu(null);
+                  navigate("/settings");
+                }}
+              >
+                <ListItemIcon>
+                  <SettingsRoundedIcon fontSize="small" />
+                </ListItemIcon>
+                Manage areas
+              </MenuItem>
+            </Menu>
+          </Box>
           <IconButton
             color="inherit"
             size="small"
@@ -345,7 +418,7 @@ export default function Layout() {
         </Box>
       </Box>
 
-      <TaskDialog open={adding} task={null} defaults={defaultsForPath(location.pathname)} onClose={() => setAdding(false)} />
+      <TaskDialog open={adding} task={null} defaults={defaultsForPath(location.pathname, defaultAreaId)} onClose={() => setAdding(false)} />
       <ListDialog open={newList} list={null} onClose={() => setNewList(false)} />
       {user && <PushNotificationsNudge />}
     </Box>

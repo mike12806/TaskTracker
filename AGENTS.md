@@ -29,7 +29,8 @@ Monorepo, two packages:
 ## Domain Model
 
 - **Task** — title, notes, priority (none/low/medium/high), `due_date` (local calendar date) and optional `due_time`, `remind_at` (UTC instant), recurrence + interval, completed/completed_at, list
-- **List** — name, colour, position. Deleting a list moves its tasks to the Inbox (`list_id IS NULL`)
+- **Area** — the level above lists (Personal, Work, …). Every list and every task has one: a task in a list is in the list's area (the server enforces it — `placeTask` in `routes/tasks.ts`), a task with no list is in that area's Inbox. Moving a list moves its tasks; deleting an area moves its contents to another; the last area can't be deleted. Which area the app shows is a per-device view filter (`hooks/useAreas.tsx`, localStorage), never a server setting, and reminders fire for every area
+- **List** — name, colour, position, area. Deleting a list moves its tasks to its area's Inbox (`list_id IS NULL`, `area_id` kept)
 - **Settings** — theme, timezone (kept in step with the device by the client), digest hour, email digest on/off, default reminder time
 - **Alert**, **push subscription**, **daily briefing** — as above
 

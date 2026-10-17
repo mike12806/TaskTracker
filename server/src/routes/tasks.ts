@@ -6,6 +6,7 @@ import { emit } from "../events/bus.js";
 import { taskEvent, type DomainEventType } from "../events/types.js";
 import { backgroundWrites } from "../kv/cache.js";
 import { readTimezone } from "./settings.js";
+import { areaBelongsToUser, defaultAreaId } from "./areas.js";
 import {
   daysBetween,
   localDateStr,
@@ -25,6 +26,8 @@ export interface TaskRow {
   id: number;
   user_id: number;
   list_id: number | null;
+  /** Always set: the list's area, or which area's Inbox the task is in. */
+  area_id: number;
   title: string;
   notes: string | null;
   priority: Priority;
@@ -55,6 +58,7 @@ const MAX_OPEN_TASKS = 2000;
 /** The editable columns, in the order the INSERT binds them. */
 const COLUMNS = [
   "list_id",
+  "area_id",
   "title",
   "notes",
   "priority",
@@ -112,6 +116,13 @@ function readTaskInput(body: Record<string, unknown>, partial: boolean): TaskInp
     input.list_id = body.list_id as number | null;
   }
 
+  if (body.area_id !== undefined) {
+    if (typeof body.area_id !== "number" || !Number.isInteger(body.area_id)) {
+      throw new InputError("area_id must be an integer");
+    }
+    input.area_id = body.area_id;
+  }
+
   if (body.due_date !== undefined) {
     const due = readNullableString(body.due_date, "due_date");
     if (due !== null && !DATE_RE.test(due)) throw new InputError("due_date must be YYYY-MM-DD");
@@ -159,14 +170,43 @@ function readTaskInput(body: Record<string, unknown>, partial: boolean): TaskInp
   return input;
 }
 
-/** The list must exist and be the caller's. `null` (the Inbox) always passes. */
-async function listBelongsToUser(db: D1Database, userId: number, listId: number | null): Promise<boolean> {
-  if (listId === null) return true;
-  const row = await db
-    .prepare("SELECT 1 AS ok FROM lists WHERE id = ? AND user_id = ?")
-    .bind(listId, userId)
-    .first();
-  return row !== null;
+/**
+ * Where a task lives: its list and its area, kept consistent.
+ *
+ * A task in a list is in that list's area — always, so the area can never
+ * disagree with the list. A task with no list is in an area's Inbox, chosen
+ * by `area_id` (or, failing that, where it already was, or the first area).
+ *
+ * Asking for a different area without naming a list moves the task to that
+ * area's Inbox: "this is a work thing" shouldn't require knowing which work
+ * list. Naming a list *and* an area that disagree is a 400, because one of
+ * them is a mistake and the server can't tell which.
+ */
+async function placeTask(
+  db: D1Database,
+  userId: number,
+  input: TaskInput,
+  existing: Pick<TaskRow, "list_id" | "area_id"> | null,
+): Promise<{ list_id: number | null; area_id: number } | { error: string; status: 400 | 404 }> {
+  const askedArea = input.area_id as number | undefined;
+  let listId = input.list_id !== undefined ? (input.list_id as number | null) : (existing?.list_id ?? null);
+
+  if (listId !== null) {
+    const list = await db
+      .prepare("SELECT area_id FROM lists WHERE id = ? AND user_id = ?")
+      .bind(listId, userId)
+      .first<{ area_id: number | null }>();
+    if (!list) return { error: "List not found", status: 404 };
+    const listArea = list.area_id ?? (await defaultAreaId(db, userId));
+    if (askedArea === undefined || askedArea === listArea) return { list_id: listId, area_id: listArea };
+    if (input.list_id !== undefined) return { error: "That list is in a different area", status: 400 };
+    listId = null;
+  }
+
+  if (askedArea !== undefined && !(await areaBelongsToUser(db, userId, askedArea))) {
+    return { error: "Area not found", status: 404 };
+  }
+  return { list_id: null, area_id: askedArea ?? existing?.area_id ?? (await defaultAreaId(db, userId)) };
 }
 
 async function fetchTask(db: D1Database, userId: number, id: number): Promise<TaskRow | null> {
@@ -215,10 +255,18 @@ tasks.get("/", async (c) => {
   const userId = c.get("userId");
   const status = c.req.query("status") ?? "open";
   const listParam = c.req.query("list_id");
+  const areaParam = c.req.query("area_id");
   const q = c.req.query("q")?.trim();
 
   const where = ["user_id = ?"];
   const binds: unknown[] = [userId];
+
+  if (areaParam !== undefined) {
+    const areaId = parseId(areaParam);
+    if (areaId === null) return c.json({ error: "Invalid area_id" }, 400);
+    where.push("area_id = ?");
+    binds.push(areaId);
+  }
 
   if (listParam !== undefined) {
     if (listParam === "inbox") {
@@ -295,9 +343,10 @@ tasks.post("/", async (c) => {
     throw error;
   }
 
-  if (!(await listBelongsToUser(c.env.DB, userId, (input.list_id as number | null) ?? null))) {
-    return c.json({ error: "List not found" }, 404);
-  }
+  const placed = await placeTask(c.env.DB, userId, input, null);
+  if ("error" in placed) return c.json({ error: placed.error }, placed.status);
+  input.list_id = placed.list_id;
+  input.area_id = placed.area_id;
 
   const cols = COLUMNS.filter((col) => input[col] !== undefined);
   const { rowId } = await insertOnce({
@@ -336,8 +385,13 @@ tasks.put("/:id", async (c) => {
     throw error;
   }
 
-  if (input.list_id !== undefined && !(await listBelongsToUser(c.env.DB, userId, input.list_id as number | null))) {
-    return c.json({ error: "List not found" }, 404);
+  if (input.list_id !== undefined || input.area_id !== undefined) {
+    const existing = await fetchTask(c.env.DB, userId, id);
+    if (!existing) return c.json({ error: "Not found" }, 404);
+    const placed = await placeTask(c.env.DB, userId, input, existing);
+    if ("error" in placed) return c.json({ error: placed.error }, placed.status);
+    input.list_id = placed.list_id;
+    input.area_id = placed.area_id;
   }
 
   const cols = COLUMNS.filter((col) => input[col] !== undefined);
@@ -442,13 +496,14 @@ tasks.post("/:id/complete", async (c) => {
   if (next) {
     statements.push(
       c.env.DB.prepare(
-        `INSERT INTO tasks (user_id, list_id, title, notes, priority, due_date, due_time, remind_at,
+        `INSERT INTO tasks (user_id, list_id, area_id, title, notes, priority, due_date, due_time, remind_at,
                             recurrence, recurrence_interval, recurred_from_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT DO NOTHING`,
       ).bind(
         userId,
         task.list_id,
+        task.area_id,
         task.title,
         task.notes,
         task.priority,

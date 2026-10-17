@@ -127,8 +127,11 @@ function section(title: string, tasks: DigestTask[], showDate: boolean): string 
 export async function buildDigest(env: Env, job: DigestJob): Promise<{ subject: string; html: string }> {
   const weekOut = addDays(job.date, 7);
   const { results } = await env.DB.prepare(
-    `SELECT t.id, t.title, t.due_date, t.due_time, t.priority, l.name AS list_name
-       FROM tasks t LEFT JOIN lists l ON l.id = t.list_id
+    `SELECT t.id, t.title, t.due_date, t.due_time, t.priority,
+            COALESCE(l.name, ar.name || ' Inbox') AS list_name
+       FROM tasks t
+       LEFT JOIN lists l ON l.id = t.list_id
+       LEFT JOIN areas ar ON ar.id = t.area_id
       WHERE t.user_id = ? AND t.completed = 0 AND t.due_date IS NOT NULL AND t.due_date <= ?
       ORDER BY t.due_date, t.due_time IS NULL, t.due_time,
                CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END`,
