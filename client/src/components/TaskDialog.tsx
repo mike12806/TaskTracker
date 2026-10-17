@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  ListSubheader,
   Menu,
   MenuItem,
   Stack,
@@ -22,6 +23,7 @@ import SnoozeRoundedIcon from "@mui/icons-material/SnoozeRounded";
 import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import { useTasks } from "../hooks/useTasks";
 import { useLists } from "../hooks/useLists";
+import { useAreas } from "../hooks/useAreas";
 import { useSettings } from "../hooks/useSettings";
 import { useSaveGuard } from "../hooks/useSaveGuard";
 import { useNotification } from "../hooks/useNotification";
@@ -31,7 +33,7 @@ import { addDaysStr, isoToLocalInput, localToIso, todayStr } from "../utils/task
 import type { Priority, Recurrence, Task, TaskInput } from "../types/models";
 
 /** What a new task starts with, decided by the view it was added from. */
-export type TaskDefaults = Partial<Pick<TaskInput, "list_id" | "due_date" | "priority">>;
+export type TaskDefaults = Partial<Pick<TaskInput, "list_id" | "area_id" | "due_date" | "priority">>;
 
 type ReminderMode = "none" | "at_due" | "custom";
 
@@ -39,6 +41,8 @@ interface FormState {
   title: string;
   notes: string;
   list_id: number | null;
+  /** Meaningful when `list_id` is null: which area's Inbox. */
+  area_id: number | null;
   priority: Priority;
   due_date: string;
   due_time: string;
@@ -60,6 +64,7 @@ function formFromTask(task: Task): FormState {
     title: task.title,
     notes: task.notes ?? "",
     list_id: task.list_id,
+    area_id: task.area_id,
     priority: task.priority,
     due_date: task.due_date ?? "",
     due_time: task.due_time ?? "",
@@ -75,6 +80,7 @@ function emptyForm(defaults: TaskDefaults): FormState {
     title: "",
     notes: "",
     list_id: defaults.list_id ?? null,
+    area_id: defaults.area_id ?? null,
     priority: defaults.priority ?? "none",
     due_date: defaults.due_date ?? "",
     due_time: "",
@@ -103,6 +109,8 @@ function toInput(form: FormState, defaultTime: string): TaskInput {
     title: form.title.trim(),
     notes: form.notes.trim() || null,
     list_id: form.list_id,
+    // With a list, the server takes the list's area; this only picks the Inbox.
+    area_id: form.list_id === null ? (form.area_id ?? undefined) : undefined,
     priority: form.priority,
     due_date: form.due_date || null,
     due_time: form.due_date && form.due_time ? form.due_time : null,
@@ -142,6 +150,7 @@ interface TaskDialogProps {
 export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskDialogProps) {
   const { create, update, complete, remove, snooze } = useTasks();
   const { lists } = useLists();
+  const { areas, defaultAreaId } = useAreas();
   const { settings } = useSettings();
   const { notify } = useNotification();
   const { saving, save } = useSaveGuard();
@@ -159,7 +168,7 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
   useEffect(() => {
     if (!open) return;
     if (task) setForm(formFromTask(task));
-    else setForm(loadDraft<FormState>(DRAFT_NAME, null) ?? emptyForm(defaults));
+    else setForm(loadDraft<FormState>(DRAFT_NAME, null) ?? emptyForm({ area_id: defaultAreaId, ...defaults }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, task?.id, task?.updated_at, defaultsKey]);
 
@@ -270,20 +279,37 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
           />
           <TextField
             select
-            label="List"
-            value={form.list_id ?? ""}
-            onChange={(e) => set("list_id", e.target.value === "" ? null : Number(e.target.value))}
+            label="Where"
+            // One picker for area and list: "a:<id>" is that area's Inbox,
+            // "l:<id>" a list (whose area comes with it).
+            value={form.list_id !== null ? `l:${form.list_id}` : `a:${form.area_id ?? defaultAreaId ?? ""}`}
+            onChange={(e) => {
+              const [kind, raw] = String(e.target.value).split(":");
+              const id = Number(raw);
+              if (kind === "l") {
+                const list = lists.find((l) => l.id === id);
+                setForm((f) => ({ ...f, list_id: id, area_id: list?.area_id ?? f.area_id }));
+              } else {
+                setForm((f) => ({ ...f, list_id: null, area_id: id }));
+              }
+            }}
             disabled={readOnly}
-            // The Inbox is the empty value, and should read as "Inbox" rather
-            // than as an unanswered field.
-            slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
           >
-            <MenuItem value="">Inbox</MenuItem>
-            {lists.map((l) => (
-              <MenuItem key={l.id} value={l.id}>
-                {l.name}
-              </MenuItem>
-            ))}
+            {areas.flatMap((area) => [
+              <ListSubheader key={`h${area.id}`} sx={{ lineHeight: "32px", fontWeight: 700, color: area.color }}>
+                {area.name}
+              </ListSubheader>,
+              <MenuItem key={`a${area.id}`} value={`a:${area.id}`}>
+                {area.name} Inbox
+              </MenuItem>,
+              ...lists
+                .filter((l) => l.area_id === area.id)
+                .map((l) => (
+                  <MenuItem key={`l${l.id}`} value={`l:${l.id}`} sx={{ pl: 4 }}>
+                    {l.name}
+                  </MenuItem>
+                )),
+            ])}
           </TextField>
 
           <Box>

@@ -7,9 +7,21 @@ export interface User {
 export type Priority = "none" | "low" | "medium" | "high";
 export type Recurrence = "none" | "daily" | "weekdays" | "weekly" | "monthly" | "yearly";
 
+/** The level above lists — Personal, Work, … Every list and task is in one. */
+export interface Area {
+  id: number;
+  name: string;
+  color: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Task {
   id: number;
   list_id: number | null;
+  /** The list's area, or which area's Inbox the task is in. */
+  area_id: number;
   title: string;
   notes: string | null;
   priority: Priority;
@@ -33,14 +45,19 @@ export interface Task {
   pending_failure?: string;
 }
 
-/** The fields a create or edit sends. */
+/**
+ * The fields a create or edit sends. `area_id` is optional because a task in a
+ * list takes the list's area — sending one as well risks a stale value that
+ * the server would reject as a mismatch.
+ */
 export type TaskInput = Pick<
   Task,
   "title" | "notes" | "priority" | "list_id" | "due_date" | "due_time" | "remind_at" | "recurrence" | "recurrence_interval"
->;
+> & { area_id?: number };
 
 export interface TaskList {
   id: number;
+  area_id: number;
   name: string;
   color: string;
   position: number;

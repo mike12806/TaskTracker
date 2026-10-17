@@ -19,6 +19,7 @@ import { usePushNotifications } from "../hooks/usePushNotifications";
 import { useNotification } from "../hooks/useNotification";
 import { useDataRefresh } from "../hooks/useDataRefresh";
 import { refreshBriefing } from "../api/tasks";
+import AreasSettings from "../components/AreasSettings";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -81,6 +82,8 @@ export default function SettingsPage() {
           </ToggleButtonGroup>
         </Row>
       </Paper>
+
+      <AreasSettings />
 
       <Paper variant="outlined" sx={{ px: 2, mb: 2 }}>
         <Row

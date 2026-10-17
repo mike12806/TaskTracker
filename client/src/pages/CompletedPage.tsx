@@ -4,6 +4,7 @@ import TaskItem from "../components/TaskItem";
 import { fetchCompletedTasks, reopenTask } from "../api/tasks";
 import { useDataRefresh } from "../hooks/useDataRefresh";
 import { useNotification } from "../hooks/useNotification";
+import { useAreas } from "../hooks/useAreas";
 import { formatRelativeTime } from "../utils/dateTime";
 import type { Task } from "../types/models";
 
@@ -17,10 +18,12 @@ export default function CompletedPage() {
   const [tasks, setTasks] = useState<Task[] | null>(null);
   const [more, setMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const { selected } = useAreas();
+  const areaId = selected === "all" ? null : selected;
 
   useEffect(() => {
     let cancelled = false;
-    fetchCompletedTasks()
+    fetchCompletedTasks(undefined, areaId)
       .then((rows) => {
         if (cancelled) return;
         setTasks(rows);
@@ -30,13 +33,13 @@ export default function CompletedPage() {
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+  }, [refreshKey, areaId]);
 
   const loadMore = async () => {
     if (!tasks?.length) return;
     setLoadingMore(true);
     try {
-      const rows = await fetchCompletedTasks(tasks[tasks.length - 1].completed_at ?? undefined);
+      const rows = await fetchCompletedTasks(tasks[tasks.length - 1].completed_at ?? undefined, areaId);
       setTasks([...tasks, ...rows]);
       setMore(rows.length === 50);
     } catch (err) {

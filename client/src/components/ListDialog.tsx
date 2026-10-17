@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField } from "@mui/material";
 import { createList, deleteList, updateList } from "../api/tasks";
 import { useDataRefresh } from "../hooks/useDataRefresh";
 import { useNotification } from "../hooks/useNotification";
 import { useSaveGuard } from "../hooks/useSaveGuard";
+import { useAreas } from "../hooks/useAreas";
 import type { TaskList } from "../types/models";
 
 export const LIST_COLORS = ["#5b5dff", "#e5484d", "#f76b15", "#ffc53d", "#30a46c", "#12a594", "#0090ff", "#8e4ec6", "#d6409f", "#868e96"];
@@ -19,7 +20,9 @@ export default function ListDialog({ open, list, onClose }: { open: boolean; lis
   const { refreshData } = useDataRefresh();
   const { notify } = useNotification();
   const { saving, save } = useSaveGuard();
+  const { areas, defaultAreaId } = useAreas();
   const [name, setName] = useState("");
+  const [areaId, setAreaId] = useState<number | "">("");
   const [color, setColor] = useState(LIST_COLORS[0]);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -27,15 +30,20 @@ export default function ListDialog({ open, list, onClose }: { open: boolean; lis
     if (!open) return;
     setName(list?.name ?? "");
     setColor(list?.color ?? LIST_COLORS[0]);
+    setAreaId(list?.area_id ?? defaultAreaId ?? "");
     setConfirmDelete(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, list]);
 
   const handleSave = () =>
-    save({ name, color }, async (key) => {
+    save({ name, color, areaId }, async (key) => {
       try {
-        if (list) await updateList(list.id, { name: name.trim(), color });
+        // Moving a list to another area moves its tasks with it (server-side,
+        // in one transaction).
+        if (list) await updateList(list.id, { name: name.trim(), color, ...(areaId !== "" && areaId !== list.area_id ? { area_id: areaId } : {}) });
         else {
-          const created = await createList(name.trim(), color, key);
+          if (areaId === "") return;
+          const created = await createList(name.trim(), color, areaId, key);
           navigate(`/lists/${created.id}`);
         }
         refreshData();
@@ -72,6 +80,19 @@ export default function ListDialog({ open, list, onClose }: { open: boolean; lis
               if (e.key === "Enter" && name.trim() && !saving) void handleSave();
             }}
           />
+          <TextField
+            select
+            label="Area"
+            value={areaId}
+            onChange={(e) => setAreaId(Number(e.target.value))}
+            helperText={list && areaId !== list.area_id ? "The list's tasks move with it." : undefined}
+          >
+            {areas.map((a) => (
+              <MenuItem key={a.id} value={a.id}>
+                {a.name}
+              </MenuItem>
+            ))}
+          </TextField>
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }} role="radiogroup" aria-label="Colour">
             {LIST_COLORS.map((c) => (
               <Box

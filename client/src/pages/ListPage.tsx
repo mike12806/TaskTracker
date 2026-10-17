@@ -5,6 +5,7 @@ import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import TaskListView from "../components/TaskListView";
 import ListDialog from "../components/ListDialog";
 import { useLists } from "../hooks/useLists";
+import { useAreas } from "../hooks/useAreas";
 import type { Task } from "../types/models";
 
 /** The Inbox (no list), one list, or every open task. */
@@ -12,6 +13,7 @@ export default function ListPage({ mode }: { mode: "inbox" | "list" | "all" }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const { listById, loaded } = useLists();
+  const { selected, areaById } = useAreas();
   const [editing, setEditing] = useState(false);
   const listId = mode === "list" ? Number(id) : null;
   const list = listById(listId);
@@ -30,7 +32,15 @@ export default function ListPage({ mode }: { mode: "inbox" | "list" | "all" }) {
     );
   }
 
-  const title = mode === "all" ? "All tasks" : mode === "inbox" ? "Inbox" : (list?.name ?? "");
+  // Each area has its own Inbox; TaskListView narrows to the selected one.
+  const title =
+    mode === "all"
+      ? "All tasks"
+      : mode === "inbox"
+        ? selected === "all"
+          ? "Inbox"
+          : `${areaById(selected)?.name ?? ""} Inbox`
+        : (list?.name ?? "");
 
   return (
     <>

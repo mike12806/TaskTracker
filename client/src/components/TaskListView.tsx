@@ -5,6 +5,7 @@ import TaskItem from "./TaskItem";
 import TaskDialog, { type TaskDefaults } from "./TaskDialog";
 import QuickAdd from "./QuickAdd";
 import { useTasks } from "../hooks/useTasks";
+import { useAreas } from "../hooks/useAreas";
 import type { Task } from "../types/models";
 
 export interface TaskGroup {
@@ -39,10 +40,13 @@ interface TaskListViewProps {
  */
 export default function TaskListView({ title, subtitle, filter, group, defaults, hideList, empty, header }: TaskListViewProps) {
   const { tasks, loaded, failed, complete } = useTasks();
+  const { inSelection, selected, areaById } = useAreas();
   const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState<Task | null>(null);
 
-  const visible = useMemo(() => tasks.filter(filter), [tasks, filter]);
+  // Every view is narrowed to the area selected in the app bar. Queued tasks
+  // carry the area_id they were created with, so they filter the same way.
+  const visible = useMemo(() => tasks.filter((t) => inSelection(t.area_id) && filter(t)), [tasks, filter, inSelection]);
   const groups = useMemo(
     () => (group ? group(visible) : [{ key: "all", heading: null, tasks: visible }]).filter((g) => g.tasks.length > 0),
     [group, visible],
@@ -75,6 +79,11 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
         <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.02em" }}>
           {title}
         </Typography>
+        {selected !== "all" && (
+          <Typography variant="body2" sx={{ color: areaById(selected)?.color, fontWeight: 600 }}>
+            {areaById(selected)?.name}
+          </Typography>
+        )}
         {subtitle && (
           <Typography variant="body2" color="text.secondary">
             {subtitle}

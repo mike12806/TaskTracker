@@ -8,6 +8,7 @@ import { NotificationProvider } from "./hooks/useNotification";
 import { PushNotificationsProvider } from "./hooks/usePushNotifications";
 import { SettingsProvider } from "./hooks/useSettings";
 import { ListsProvider } from "./hooks/useLists";
+import { AreasProvider } from "./hooks/useAreas";
 import { TasksProvider } from "./hooks/useTasks";
 import { LiveConnection } from "./components/LiveConnection";
 import Layout from "./components/Layout";
@@ -52,27 +53,29 @@ export default function App() {
                 <LiveConnection />
                 <NotificationProvider>
                   <SettingsProvider>
-                    <ListsProvider>
-                      <TasksProvider>
-                        <PushNotificationsProvider>
-                          <Suspense fallback={<Spinner minHeight="60vh" />}>
-                            <Routes>
-                              <Route element={<Layout />}>
-                                <Route path="/" element={<TodayPage />} />
-                                <Route path="/upcoming" element={<UpcomingPage />} />
-                                <Route path="/inbox" element={<ListPage mode="inbox" />} />
-                                <Route path="/all" element={<ListPage mode="all" />} />
-                                <Route path="/lists/:id" element={<ListPage mode="list" />} />
-                                <Route path="/completed" element={<CompletedPage />} />
-                                <Route path="/search" element={<SearchPage />} />
-                                <Route path="/settings" element={<SettingsPage />} />
-                                <Route path="*" element={<TodayPage />} />
-                              </Route>
-                            </Routes>
-                          </Suspense>
-                        </PushNotificationsProvider>
-                      </TasksProvider>
-                    </ListsProvider>
+                    <AreasProvider>
+                      <ListsProvider>
+                        <TasksProvider>
+                          <PushNotificationsProvider>
+                            <Suspense fallback={<Spinner minHeight="60vh" />}>
+                              <Routes>
+                                <Route element={<Layout />}>
+                                  <Route path="/" element={<TodayPage />} />
+                                  <Route path="/upcoming" element={<UpcomingPage />} />
+                                  <Route path="/inbox" element={<ListPage mode="inbox" />} />
+                                  <Route path="/all" element={<ListPage mode="all" />} />
+                                  <Route path="/lists/:id" element={<ListPage mode="list" />} />
+                                  <Route path="/completed" element={<CompletedPage />} />
+                                  <Route path="/search" element={<SearchPage />} />
+                                  <Route path="/settings" element={<SettingsPage />} />
+                                  <Route path="*" element={<TodayPage />} />
+                                </Route>
+                              </Routes>
+                            </Suspense>
+                          </PushNotificationsProvider>
+                        </TasksProvider>
+                      </ListsProvider>
+                    </AreasProvider>
                   </SettingsProvider>
                 </NotificationProvider>
               </DataRefreshProvider>

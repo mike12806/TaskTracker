@@ -6,6 +6,7 @@ import NotesRoundedIcon from "@mui/icons-material/NotesRounded";
 import FlagRoundedIcon from "@mui/icons-material/FlagRounded";
 import PendingChip from "./PendingChip";
 import { useLists } from "../hooks/useLists";
+import { useAreas } from "../hooks/useAreas";
 import { buildCategoryColors } from "../theme/categoryColors";
 import { describeRecurrence, formatDue, formatTime, hasUpcomingReminder, isOverdue } from "../utils/taskDates";
 import type { Task } from "../types/models";
@@ -30,7 +31,11 @@ function TaskItem({ task, onToggle, onOpen, hideDate, hideList }: TaskItemProps)
   const theme = useTheme();
   const colors = buildCategoryColors(theme.palette.mode === "dark");
   const { listById } = useLists();
+  const { selected, areaById } = useAreas();
   const list = hideList ? undefined : listById(task.list_id);
+  // Showing every area: say which one each task is in. With one area
+  // selected it would be the same word on every row.
+  const area = selected === "all" ? areaById(task.area_id) : undefined;
   const due = hideDate ? (task.due_time ? formatTime(task.due_time) : null) : formatDue(task);
   const overdue = isOverdue(task);
   const recurrence = describeRecurrence(task);
@@ -102,6 +107,14 @@ function TaskItem({ task, onToggle, onOpen, hideDate, hideList }: TaskItemProps)
           {task.notes && <NotesRoundedIcon sx={{ fontSize: 15, color: "text.secondary" }} aria-label="Has notes" />}
           {task.priority === "high" && (
             <FlagRoundedIcon sx={{ fontSize: 15, color: colors.high.solid }} aria-label="High priority" />
+          )}
+          {area && (
+            <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+              <Box component="span" sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: area.color }} />
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                {area.name}
+              </Typography>
+            </Box>
           )}
           {list && (
             <Chip
