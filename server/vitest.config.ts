@@ -21,5 +21,8 @@ export default defineConfig({
     maxWorkers: process.env.CI ? 2 : undefined,
     // The heaviest tests can pass 5 s on a 2-CPU runner pod; give them room.
     testTimeout: 25_000,
+    // Setup hooks (beforeEach/beforeAll) still had vitest's 10 s default and
+    // timed out on the same pods; match the test timeout.
+    hookTimeout: 25_000,
   },
 });
