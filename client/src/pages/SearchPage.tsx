@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Box, InputAdornment, Paper, TextField, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
-import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import { SearchRoundedIcon } from "../icons";
 import TaskItem from "../components/TaskItem";
 import TaskDialog from "../components/TaskDialog";
 import { searchTasks } from "../api/tasks";

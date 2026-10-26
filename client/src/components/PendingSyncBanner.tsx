@@ -10,9 +10,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import CloudOffIcon from "@mui/icons-material/CloudOff";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
-import RefreshIcon from "@mui/icons-material/Refresh";
+import { CloudOffIcon, DeleteOutlinedIcon as DeleteOutlineIcon, RefreshIcon } from "../icons";
 import {
   OUTBOX_RESOURCES,
   discardEntry,

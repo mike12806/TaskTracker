@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { InputAdornment, TextField } from "@mui/material";
-import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import { AddRoundedIcon } from "../icons";
 import { useTasks } from "../hooks/useTasks";
 import { useSaveGuard } from "../hooks/useSaveGuard";
 import { useNotification } from "../hooks/useNotification";

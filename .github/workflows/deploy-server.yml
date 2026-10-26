@@ -29,9 +29,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
         with:
           node-version: 24
-          cache: npm
 
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
 
       - name: Type check
         run: npx tsc --noEmit -p server/tsconfig.json
@@ -66,9 +65,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
         with:
           node-version: 24
-          cache: npm
 
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
 
       # The Worker validates every request's Cloudflare Access JWT against the
       # application's audience tag. Deploying with the placeholder would answer

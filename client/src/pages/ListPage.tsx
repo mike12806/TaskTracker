@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Box, Button, IconButton, Tooltip } from "@mui/material";
-import EditRoundedIcon from "@mui/icons-material/EditRounded";
+import { EditRoundedIcon } from "../icons";
 import TaskListView from "../components/TaskListView";
 import ListDialog from "../components/ListDialog";
 import { useLists } from "../hooks/useLists";

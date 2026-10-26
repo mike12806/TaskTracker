@@ -1,5 +1,5 @@
 import { Box, Tooltip } from "@mui/material";
-import CloudOffIcon from "@mui/icons-material/CloudOff";
+import { CloudOffIcon } from "../icons";
 
 /**
  * The mark on a task that exists only on this device.

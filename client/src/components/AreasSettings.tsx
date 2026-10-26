@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Box, Button, IconButton, Menu, MenuItem, Paper, TextField, Tooltip, Typography } from "@mui/material";
-import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
-import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import { AddRoundedIcon, DeleteOutlineRoundedIcon } from "../icons";
 import { createArea, deleteArea, updateArea } from "../api/tasks";
 import { useAreas } from "../hooks/useAreas";
 import { useDataRefresh } from "../hooks/useDataRefresh";

@@ -30,9 +30,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
         with:
           node-version: 24
-          cache: npm
 
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
 
       - name: Type check
         run: npx tsc --noEmit -p client/tsconfig.json
@@ -67,9 +66,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
         with:
           node-version: 24
-          cache: npm
 
-      - run: npm ci
+      - run: npm ci --no-audit --no-fund
 
       # Same guard as deploy-server.yml: the site must not go live on its
       # hostname before the Cloudflare Access application protecting it exists.

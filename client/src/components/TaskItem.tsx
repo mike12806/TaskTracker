@@ -1,9 +1,6 @@
 import { memo } from "react";
 import { Box, Checkbox, Chip, Tooltip, Typography, useTheme } from "@mui/material";
-import AlarmRoundedIcon from "@mui/icons-material/AlarmRounded";
-import RepeatRoundedIcon from "@mui/icons-material/RepeatRounded";
-import NotesRoundedIcon from "@mui/icons-material/NotesRounded";
-import FlagRoundedIcon from "@mui/icons-material/FlagRounded";
+import { AlarmRoundedIcon, FlagRoundedIcon, NotesRoundedIcon, RepeatRoundedIcon } from "../icons";
 import PendingChip from "./PendingChip";
 import { useLists } from "../hooks/useLists";
 import { useAreas } from "../hooks/useAreas";

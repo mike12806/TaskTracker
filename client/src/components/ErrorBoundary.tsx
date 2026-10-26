@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Box, Button, Stack, Typography } from "@mui/material";
-import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined";
+import { ReportProblemOutlinedIcon } from "../icons";
 
 /**
  * Catches a render error and shows it, instead of letting React unmount the

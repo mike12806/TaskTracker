@@ -12,6 +12,30 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
+    // Threads rather than child processes. Each test file still gets its own
+    // worker and its own jsdom; a thread is cheaper to start than a process, and
+    // the workers share one, so a run takes less CPU and memory than forks.
+    pool: "threads",
+    // Pre-bundle the libraries every component imports. Unbundled, every test
+    // file loads @mui/material (and Emotion, and React) as hundreds of separate
+    // modules; bundled, each is a single file.
+    // Leave out anything a test `vi.mock`s: its mock factory stops matching the
+    // import once the module is bundled.
+    deps: {
+      optimizer: {
+        client: {
+          enabled: true,
+          include: [
+            "@mui/material",
+            "@mui/material/styles",
+            "@emotion/react",
+            "@emotion/styled",
+            "react",
+            "react-dom",
+          ],
+        },
+      },
+    },
     // CI runs on self-hosted runner pods that get a slice of a node, but
     // vitest's default is one worker per node CPU (each one a full workerd
     // or jsdom instance). Four of those runs at once drove a 4-CPU node into
