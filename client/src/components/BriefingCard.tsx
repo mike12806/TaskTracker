@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Box, Paper, Tooltip, Typography } from "@mui/material";
-import AutoAwesomeRoundedIcon from "@mui/icons-material/AutoAwesomeRounded";
+import { AutoAwesomeRoundedIcon } from "../icons";
 import { fetchBriefing } from "../api/tasks";
 import { useDataRefresh } from "../hooks/useDataRefresh";
 import type { Briefing } from "../types/models";

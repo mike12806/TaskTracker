@@ -11,11 +11,13 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import AlarmRoundedIcon from "@mui/icons-material/AlarmRounded";
-import NotificationsOffRoundedIcon from "@mui/icons-material/NotificationsOffRounded";
-import MarkEmailUnreadRoundedIcon from "@mui/icons-material/MarkEmailUnreadRounded";
+import {
+  AlarmRoundedIcon,
+  CloseRoundedIcon,
+  MarkEmailUnreadRoundedIcon,
+  NotificationsNoneRoundedIcon,
+  NotificationsOffRoundedIcon,
+} from "../icons";
 import { dismissAlert, fetchAlerts, markAlertsRead, restoreAlert, unreadAlert } from "../api/alerts";
 import { useDataRefresh } from "../hooks/useDataRefresh";
 import { usePushNotifications } from "../hooks/usePushNotifications";

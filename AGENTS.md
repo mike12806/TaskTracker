@@ -53,6 +53,7 @@ Monorepo, two packages:
 - `npm install` at the root (workspaces)
 - `npm test` — server tests run in the Workers pool against real Miniflare D1/KV/Durable Objects; client tests run in jsdom
 - `npm run build:client`, `npm run build:server` (a `wrangler deploy --dry-run`)
+- Icons: import `<Name>Icon` from `client/src/icons.tsx` (never from `@mui/icons-material`, which is not installed), then run `npm run icons -w client` to regenerate the file. It copies just the imported icons out of the package; see `client/scripts/vendor-icons.mjs`
 - Never deploy by hand; merge to `main`
 
 ## Database

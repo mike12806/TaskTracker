@@ -18,9 +18,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
-import SnoozeRoundedIcon from "@mui/icons-material/SnoozeRounded";
-import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
+import { CheckRoundedIcon, DeleteOutlineRoundedIcon, SnoozeRoundedIcon } from "../icons";
 import { useTasks } from "../hooks/useTasks";
 import { useLists } from "../hooks/useLists";
 import { useAreas } from "../hooks/useAreas";

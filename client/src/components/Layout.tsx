@@ -22,19 +22,21 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
-import TodayRoundedIcon from "@mui/icons-material/TodayRounded";
-import EventRoundedIcon from "@mui/icons-material/EventRounded";
-import InboxRoundedIcon from "@mui/icons-material/InboxRounded";
-import ChecklistRoundedIcon from "@mui/icons-material/ChecklistRounded";
-import TaskAltRoundedIcon from "@mui/icons-material/TaskAltRounded";
-import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
-import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
-import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import CircleIcon from "@mui/icons-material/Circle";
-import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
-import ArrowDropDownRoundedIcon from "@mui/icons-material/ArrowDropDownRounded";
-import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
+import {
+  AddRoundedIcon,
+  ArrowDropDownRoundedIcon,
+  ChecklistRoundedIcon,
+  CheckRoundedIcon,
+  CircleIcon,
+  EventRoundedIcon,
+  InboxRoundedIcon,
+  MenuIcon,
+  MoreHorizRoundedIcon,
+  SearchRoundedIcon,
+  SettingsRoundedIcon,
+  TaskAltRoundedIcon,
+  TodayRoundedIcon,
+} from "../icons";
 import ErrorBoundary from "./ErrorBoundary";
 import PendingSyncBanner from "./PendingSyncBanner";
 import PushNotificationsNudge from "./PushNotificationsNudge";
