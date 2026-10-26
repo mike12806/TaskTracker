@@ -55,15 +55,22 @@ export function createTestApp() {
   return app;
 }
 
-/** Run a multi-statement SQL script against D1, one statement at a time. */
+/**
+ * Run a multi-statement SQL script against D1, which only accepts one statement
+ * per prepared statement.
+ *
+ * The statements go as one batch: one round trip and one transaction, rather
+ * than a round trip and a commit for each. `applyMigrations` runs about 45
+ * statements before every test, and on the CI runner pods each commit cost
+ * enough that the reset, not the test, was most of a test's 3–4 seconds.
+ */
 export async function execScript(db: D1Database, script: string) {
   const statements = script
     .split(";")
     .map((s) => s.trim())
     .filter((s) => s.replace(/--[^\n]*/g, "").trim().length > 0);
-  for (const sql of statements) {
-    await db.prepare(sql).run();
-  }
+  if (statements.length === 0) return;
+  await db.batch(statements.map((sql) => db.prepare(sql)));
 }
 
 /**
