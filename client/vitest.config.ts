@@ -18,6 +18,8 @@ export default defineConfig({
     // memory thrashing, so CI is capped at two workers; local runs keep the
     // default.
     maxWorkers: process.env.CI ? 2 : undefined,
+    // The heaviest tests can pass 5 s on a 2-CPU runner pod; give them room.
+    testTimeout: 25_000,
     globals: true,
     setupFiles: ["./test/setup.ts"],
     server: {
