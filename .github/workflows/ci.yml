@@ -26,10 +26,9 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
         with:
           node-version: 24
-          cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Type check server
         run: npx tsc --noEmit -p server/tsconfig.json
@@ -46,6 +45,9 @@ jobs:
       - name: Apply KV migrations (local)
         run: npm run kv:migrate -w server
 
+      - name: Build server
+        run: npm run build:server
+
   test-client:
     name: Client Tests
     runs-on: self-hosted
@@ -55,34 +57,25 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
         with:
           node-version: 24
-          cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
-      - name: Type check client
-        run: npx tsc --noEmit -p client/tsconfig.json
+      # The build script is `tsc && vite build`, and client/tsconfig.json has
+      # noEmit, so this is the type check as well as the build.
+      - name: Type check and build client
+        run: npm run build:client
 
       - name: Run client tests
         run: npm run test -w client
 
+  # The builds run in the test jobs above, which already have the dependencies
+  # installed; this job used to reinstall them on a third runner pod after both
+  # test jobs had finished. It stays because "Build" is a required status check
+  # on main, and it only runs once both test jobs (builds included) passed.
   build:
     name: Build
     runs-on: self-hosted
     needs: [test-server, test-client]
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build client
-        run: npm run build:client
-
-      - name: Build server
-        run: npm run build:server
+      - run: echo "Client and server built in their test jobs."
