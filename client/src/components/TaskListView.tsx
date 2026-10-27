@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Box, CircularProgress, Paper, Typography } from "@mui/material";
 import TaskItem from "./TaskItem";
@@ -31,6 +31,15 @@ interface TaskListViewProps {
 }
 
 /**
+ * True inside the second view Layout shows beside the page when a foldable is
+ * open (see `utils/fold.ts`). It is a glance at another view, not a second
+ * page: no quick-add field to type into by mistake, no header (Today's is the
+ * briefing, a request of its own), and `?task=` is left to the page so one
+ * link never opens two editors.
+ */
+export const CompanionViewContext = createContext(false);
+
+/**
  * Every task view — Today, Upcoming, Inbox, a list — is this component with a
  * different filter. The tasks come from `TasksProvider`, already fetched and
  * sorted, so switching views costs no request.
@@ -43,6 +52,7 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
   const { inSelection, selected, areaById } = useAreas();
   const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState<Task | null>(null);
+  const companion = useContext(CompanionViewContext);
 
   // Every view is narrowed to the area selected in the app bar. Queued tasks
   // carry the area_id they were created with, so they filter the same way.
@@ -55,7 +65,7 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
   // Deep link from a notification or the bell.
   const linked = searchParams.get("task");
   useEffect(() => {
-    if (!linked || !loaded) return;
+    if (companion || !linked || !loaded) return;
     const task = tasks.find((t) => t.id === Number(linked));
     if (task) setEditing(task);
     setSearchParams(
@@ -65,7 +75,7 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
       },
       { replace: true },
     );
-  }, [linked, loaded, tasks, setSearchParams]);
+  }, [companion, linked, loaded, tasks, setSearchParams]);
 
   // Keep an open editor pointed at the freshest copy of its task.
   const editingCurrent = editing ? (tasks.find((t) => t.id === editing.id) ?? editing) : null;
@@ -90,8 +100,8 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
           </Typography>
         )}
       </Box>
-      {header}
-      <QuickAdd defaults={defaults} />
+      {!companion && header}
+      {!companion && <QuickAdd defaults={defaults} />}
 
       {!loaded && !failed && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>

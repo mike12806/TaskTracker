@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -43,12 +43,15 @@ import PushNotificationsNudge from "./PushNotificationsNudge";
 import AlertsBell from "./AlertsBell";
 import TaskDialog, { type TaskDefaults } from "./TaskDialog";
 import ListDialog from "./ListDialog";
+import { CompanionViewContext } from "./TaskListView";
+import TodayPage from "../pages/TodayPage";
 import { useAuth } from "../hooks/useAuth";
 import { useDataFreshness } from "../hooks/useDataFreshness";
 import { useDataRefresh } from "../hooks/useDataRefresh";
 import { useLists } from "../hooks/useLists";
 import { useAreas } from "../hooks/useAreas";
 import { useTasks } from "../hooks/useTasks";
+import { useFold } from "../hooks/useFold";
 import { formatRelativeTime } from "../utils/dateTime";
 import { addDaysStr, todayStr } from "../utils/taskDates";
 
@@ -56,6 +59,28 @@ const DRAWER_WIDTH = 260;
 const BOTTOM_NAV_HEIGHT = 68;
 const APPBAR_HEIGHT_MOBILE = 48;
 const APPBAR_HEIGHT_DESKTOP = 56;
+
+// Already its own chunk (App.tsx loads it the same way); this only shares it.
+const UpcomingPage = lazy(() => import("../pages/UpcomingPage"));
+
+/**
+ * The pane right of the fold on an open foldable (see `utils/fold.ts`). It
+ * stays in view while the page beside it scrolls, and scrolls on its own.
+ */
+const END_PANE_SX = {
+  gridColumn: 3,
+  minWidth: 0,
+  position: "sticky",
+  top: `calc(${APPBAR_HEIGHT_MOBILE}px + env(safe-area-inset-top))`,
+  height: `calc(100dvh - ${APPBAR_HEIGHT_MOBILE}px - env(safe-area-inset-top))`,
+  overflowY: "auto",
+  overscrollBehavior: "contain",
+  px: 1.5,
+  pt: 1.5,
+  pb: "calc(env(safe-area-inset-bottom) + 16px)",
+  borderLeft: 1,
+  borderColor: "divider",
+} as const;
 
 /** What the add button pre-fills, from the page it was tapped on and the area on screen. */
 function defaultsForPath(pathname: string, areaId: number | undefined): TaskDefaults {
@@ -87,6 +112,14 @@ export default function Layout() {
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
   const isDark = muiTheme.palette.mode === "dark";
+
+  // Open like a book, the page takes the left pane and a second view the
+  // right: Upcoming beside Today, Today beside everything else. Every view
+  // filters the one task list `TasksProvider` already holds, so the second
+  // costs no request. Tapping a task there opens its editor in that same
+  // pane, since the theme puts dialogs on the right.
+  const fold = useFold();
+  const columns = fold.kind === "columns" ? fold : null;
 
   const today = todayStr();
   const todayCount = tasks.filter((t) => t.due_date !== null && t.due_date <= today).length;
@@ -307,50 +340,75 @@ export default function Layout() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 1.5, sm: 3 },
+          pt: { xs: 1.5, sm: 3 },
+          // Open, the panes pad themselves, so each is inset from the crease.
+          px: columns ? 0 : { xs: 1.5, sm: 3 },
+          ...(columns && {
+            display: "grid",
+            gridTemplateColumns: `${columns.start}px ${columns.hinge}px ${columns.end}px`,
+            alignItems: "start",
+          }),
           ml: { md: `${DRAWER_WIDTH}px` },
           mt: { xs: `calc(${APPBAR_HEIGHT_MOBILE}px + env(safe-area-inset-top))`, md: `${APPBAR_HEIGHT_DESKTOP}px` },
           pb: { xs: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 16px)`, md: 3 },
           minHeight: { xs: `calc(100vh - ${APPBAR_HEIGHT_MOBILE}px)`, md: `calc(100vh - ${APPBAR_HEIGHT_DESKTOP}px)` },
           maxWidth: "100%",
-          overflow: "hidden",
+          // `clip` rather than `hidden` when open: a hidden overflow is a
+          // scroll container, and the right-hand pane could not stick in it.
+          overflow: columns ? "clip" : "hidden",
         }}
       >
-        {/* Nothing caches API data, so what's on screen is whatever the last
-            successful refresh brought back. The moment a refresh fails, its
-            age is said out loud rather than left to look live. */}
-        {staleSince !== null && (
-          <Alert
-            severity="warning"
-            variant="outlined"
-            sx={{ mb: 2, alignItems: "center" }}
-            action={
-              <Button color="inherit" size="small" onClick={refreshData}>
-                Retry
-              </Button>
-            }
-          >
-            Can't reach the server — showing tasks from {formatRelativeTime(new Date(staleSince).toISOString())}. Changes
-            made on other devices aren't here yet; retrying automatically.
-          </Alert>
+        <Box sx={columns ? { gridColumn: 1, minWidth: 0, px: 1.5 } : undefined}>
+          {/* Nothing caches API data, so what's on screen is whatever the last
+              successful refresh brought back. The moment a refresh fails, its
+              age is said out loud rather than left to look live. */}
+          {staleSince !== null && (
+            <Alert
+              severity="warning"
+              variant="outlined"
+              sx={{ mb: 2, alignItems: "center" }}
+              action={
+                <Button color="inherit" size="small" onClick={refreshData}>
+                  Retry
+                </Button>
+              }
+            >
+              Can't reach the server — showing tasks from {formatRelativeTime(new Date(staleSince).toISOString())}. Changes
+              made on other devices aren't here yet; retrying automatically.
+            </Alert>
+          )}
+          {/* The same honesty the other way: what this device has that the
+              server hasn't. */}
+          <PendingSyncBanner />
+          {/* Keyed on the route so navigating away clears a crashed page. */}
+          <ErrorBoundary key={location.pathname} scope="This page failed to load">
+            <Outlet />
+          </ErrorBoundary>
+        </Box>
+        {/* After the page, never around it: opening the phone adds this pane
+            without moving the page in the tree, so nothing on it remounts. */}
+        {columns && (
+          <Box component="aside" aria-label="Second view" sx={END_PANE_SX}>
+            <CompanionViewContext.Provider value={true}>
+              <ErrorBoundary key={location.pathname} scope="This view failed to load">
+                <Suspense fallback={null}>{location.pathname === "/" ? <UpcomingPage /> : <TodayPage />}</Suspense>
+              </ErrorBoundary>
+            </CompanionViewContext.Provider>
+          </Box>
         )}
-        {/* The same honesty the other way: what this device has that the
-            server hasn't. */}
-        <PendingSyncBanner />
-        {/* Keyed on the route so navigating away clears a crashed page. */}
-        <ErrorBoundary key={location.pathname} scope="This page failed to load">
-          <Outlet />
-        </ErrorBoundary>
       </Box>
 
-      {/* Mobile bottom navigation, with the add button in the middle. */}
+      {/* Mobile bottom navigation, with the add button in the middle. Open, it
+          spans the left pane only: across the whole width the add button
+          would sit on the crease. */}
       <Box
         sx={{
           display: { xs: "block", md: "none" },
           position: "fixed",
           bottom: 0,
           left: 0,
-          right: 0,
+          right: columns ? "auto" : 0,
+          width: columns?.start,
           zIndex: (theme) => theme.zIndex.appBar,
           paddingBottom: "env(safe-area-inset-bottom)",
           borderTop: 1,

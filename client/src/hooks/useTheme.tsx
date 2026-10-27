@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useMemo, useCallback, useEffect } from "react";
 import { ThemeProvider as MuiThemeProvider } from "@mui/material/styles";
 import { buildTheme } from "../theme/theme";
+import { useFold } from "./useFold";
 import { api } from "../api/client";
 import { loadUserSettings } from "../api/userSettings";
 
@@ -92,7 +93,10 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute("data-theme", mode);
   }, [mode]);
 
-  const theme = useMemo(() => buildTheme(mode), [mode]);
+  // Rebuilt when the phone is opened or closed, so every breakpoint describes
+  // a pane of the fold rather than the whole screen — see `buildTheme`.
+  const fold = useFold();
+  const theme = useMemo(() => buildTheme(mode, fold), [mode, fold]);
 
   const value = useMemo(() => ({ mode, preference, setPreference }), [mode, preference, setPreference]);
 

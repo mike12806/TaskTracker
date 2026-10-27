@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Box, CircularProgress, CssBaseline } from "@mui/material";
 import { AppThemeProvider } from "./hooks/useTheme";
+import { FoldProvider } from "./hooks/useFold";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { DataRefreshProvider } from "./hooks/useDataRefresh";
 import { NotificationProvider } from "./hooks/useNotification";
@@ -38,51 +39,55 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AppThemeProvider>
-      <CssBaseline />
-      {/* Catch-all. The boundary inside Layout handles a page blowing up and
-          keeps the nav; this one is for everything outside it. */}
-      <ErrorBoundary>
-        <BrowserRouter>
-          <AuthProvider>
-            <AuthGate>
-              <DataRefreshProvider>
-                {/* Inside the auth gate so the handshake carries a live Access
-                    session; outside the routes so changing page doesn't
-                    rebuild the socket. */}
-                <LiveConnection />
-                <NotificationProvider>
-                  <SettingsProvider>
-                    <AreasProvider>
-                      <ListsProvider>
-                        <TasksProvider>
-                          <PushNotificationsProvider>
-                            <Suspense fallback={<Spinner minHeight="60vh" />}>
-                              <Routes>
-                                <Route element={<Layout />}>
-                                  <Route path="/" element={<TodayPage />} />
-                                  <Route path="/upcoming" element={<UpcomingPage />} />
-                                  <Route path="/inbox" element={<ListPage mode="inbox" />} />
-                                  <Route path="/all" element={<ListPage mode="all" />} />
-                                  <Route path="/lists/:id" element={<ListPage mode="list" />} />
-                                  <Route path="/completed" element={<CompletedPage />} />
-                                  <Route path="/search" element={<SearchPage />} />
-                                  <Route path="/settings" element={<SettingsPage />} />
-                                  <Route path="*" element={<TodayPage />} />
-                                </Route>
-                              </Routes>
-                            </Suspense>
-                          </PushNotificationsProvider>
-                        </TasksProvider>
-                      </ListsProvider>
-                    </AreasProvider>
-                  </SettingsProvider>
-                </NotificationProvider>
-              </DataRefreshProvider>
-            </AuthGate>
-          </AuthProvider>
-        </BrowserRouter>
-      </ErrorBoundary>
-    </AppThemeProvider>
+    // Outside the theme, which is rebuilt from it: on an open foldable every
+    // breakpoint describes one pane — see utils/fold.ts.
+    <FoldProvider>
+      <AppThemeProvider>
+        <CssBaseline />
+        {/* Catch-all. The boundary inside Layout handles a page blowing up and
+            keeps the nav; this one is for everything outside it. */}
+        <ErrorBoundary>
+          <BrowserRouter>
+            <AuthProvider>
+              <AuthGate>
+                <DataRefreshProvider>
+                  {/* Inside the auth gate so the handshake carries a live Access
+                      session; outside the routes so changing page doesn't
+                      rebuild the socket. */}
+                  <LiveConnection />
+                  <NotificationProvider>
+                    <SettingsProvider>
+                      <AreasProvider>
+                        <ListsProvider>
+                          <TasksProvider>
+                            <PushNotificationsProvider>
+                              <Suspense fallback={<Spinner minHeight="60vh" />}>
+                                <Routes>
+                                  <Route element={<Layout />}>
+                                    <Route path="/" element={<TodayPage />} />
+                                    <Route path="/upcoming" element={<UpcomingPage />} />
+                                    <Route path="/inbox" element={<ListPage mode="inbox" />} />
+                                    <Route path="/all" element={<ListPage mode="all" />} />
+                                    <Route path="/lists/:id" element={<ListPage mode="list" />} />
+                                    <Route path="/completed" element={<CompletedPage />} />
+                                    <Route path="/search" element={<SearchPage />} />
+                                    <Route path="/settings" element={<SettingsPage />} />
+                                    <Route path="*" element={<TodayPage />} />
+                                  </Route>
+                                </Routes>
+                              </Suspense>
+                            </PushNotificationsProvider>
+                          </TasksProvider>
+                        </ListsProvider>
+                      </AreasProvider>
+                    </SettingsProvider>
+                  </NotificationProvider>
+                </DataRefreshProvider>
+              </AuthGate>
+            </AuthProvider>
+          </BrowserRouter>
+        </ErrorBoundary>
+      </AppThemeProvider>
+    </FoldProvider>
   );
 }

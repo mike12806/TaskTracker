@@ -1,4 +1,6 @@
-import { createTheme, type Shadows } from "@mui/material/styles";
+import { createTheme, type CSSObject, type Shadows } from "@mui/material/styles";
+import type { MenuProps } from "@mui/material/Menu";
+import { paneBreakpointOffset, SINGLE, type FoldLayout } from "../utils/fold";
 
 type Mode = "light" | "dark";
 
@@ -38,8 +40,59 @@ function buildShadows(mode: Mode): Shadows {
   return custom as unknown as Shadows;
 }
 
-export function buildTheme(mode: Mode) {
+interface FoldOverrides {
+  dialogContainer?: CSSObject;
+  snackbarRoot?: CSSObject;
+  drawerRoot?: CSSObject;
+  menuProps?: Partial<MenuProps>;
+}
+
+/**
+ * What changes when the screen has a fold — see `utils/fold.ts`.
+ *
+ * Side by side, every breakpoint moves out by the width of the other pane, so
+ * the whole app sees one half as its screen: the existing phone layouts fill a
+ * pane each, and nothing that asks `md`/`sm` needs to know about folds. Things
+ * that float over the page are kept in the pane right of the fold, where the
+ * crease can't cut through them: dialogs (a full-screen form fills that pane
+ * and leaves the list it came from in view beside it), snackbars, and drawers,
+ * which are capped at their own pane's width. Menus open leftwards from
+ * their button: the ⋮ at the end of a row in the left pane sits against the
+ * crease, and a menu opening rightwards from it would cross it. Half-closed
+ * like a laptop, dialogs go to the bottom half, the one under the user's
+ * thumbs.
+ */
+function foldOverrides(fold: FoldLayout): FoldOverrides {
+  if (fold.kind === "columns") {
+    const endLeft = fold.start + fold.hinge;
+    const inEndPane = { left: endLeft + 8, right: 8, transform: "none" };
+    return {
+      dialogContainer: { paddingLeft: endLeft },
+      // MUI centres a snackbar with its own `sm` media query, so the
+      // override is repeated inside one to land after it.
+      snackbarRoot: { ...inEndPane, "@media (min-width:0px)": inEndPane },
+      // By class: MUI sets `anchorLeft`/`anchorRight` on the root but reads no
+      // overrides under those keys.
+      drawerRoot: {
+        "&.MuiDrawer-anchorLeft .MuiDrawer-paper": { maxWidth: fold.start },
+        "&.MuiDrawer-anchorRight .MuiDrawer-paper": { maxWidth: fold.end },
+      },
+      menuProps: {
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+        transformOrigin: { vertical: "top", horizontal: "right" },
+      },
+    };
+  }
+  if (fold.kind === "rows") {
+    return { dialogContainer: { paddingTop: fold.top + fold.hinge } };
+  }
+  return {};
+}
+
+export function buildTheme(mode: Mode, fold: FoldLayout = SINGLE) {
   const isLight = mode === "light";
+  const breakpointOffset = paneBreakpointOffset(fold);
+  const folded = foldOverrides(fold);
   const borderColor = isLight
     ? "rgba(15, 23, 42, 0.08)"
     : "rgba(255, 255, 255, 0.07)";
@@ -77,6 +130,15 @@ export function buildTheme(mode: Mode) {
     : "rgba(2, 4, 8, 0.65)";
 
   return createTheme({
+    breakpoints: {
+      values: {
+        xs: 0,
+        sm: 600 + breakpointOffset,
+        md: 900 + breakpointOffset,
+        lg: 1200 + breakpointOffset,
+        xl: 1536 + breakpointOffset,
+      },
+    },
     palette: {
       mode,
       primary: { main: isLight ? "#5b5dff" : "#a5b4fc" },
@@ -140,6 +202,7 @@ export function buildTheme(mode: Mode) {
       },
       MuiDrawer: {
         styleOverrides: {
+          root: folded.drawerRoot,
           paper: {
             backgroundImage: "none",
             backgroundColor: surfacePaper,
@@ -188,6 +251,12 @@ export function buildTheme(mode: Mode) {
             paddingLeft: "env(safe-area-inset-left)",
             paddingRight: "env(safe-area-inset-right)",
           },
+          container: folded.dialogContainer,
+        },
+      },
+      MuiSnackbar: {
+        styleOverrides: {
+          root: folded.snackbarRoot,
         },
       },
       MuiBackdrop: {
@@ -247,6 +316,7 @@ export function buildTheme(mode: Mode) {
         },
       },
       MuiMenu: {
+        defaultProps: folded.menuProps,
         styleOverrides: {
           paper: {
             backgroundImage: "none",

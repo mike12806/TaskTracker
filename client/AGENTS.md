@@ -199,3 +199,44 @@ still undone, and it only ever reached the devices that opted in.
 - `?task=<id>` on any view opens that task; notifications and alerts link there
 - Dates: `utils/taskDates.ts` on the client, `server/src/time.ts` on the server.
   Due dates are local calendar dates, never instants
+
+## Foldables
+
+The iPhone Duo — and any book-style foldable — opens to a landscape inner
+display of about 890 × 626 points with the crease down the middle. Open, the
+app is two panes, one per half; closed, it is the phone app it always was.
+The same machinery is in BabyTracker; keep the two in step.
+
+- **Where the fold is** comes from `utils/fold.ts`, fed by `FoldProvider`
+  (`hooks/useFold.tsx`), which re-measures on resize, orientation, posture and
+  segment changes. The Viewport Segments and Device Posture APIs are used when
+  the browser reports them, but Safari 27.1 ships both only behind feature
+  flags, so the fold is usually *inferred*: an Apple touch screen whose short
+  side is at least 560 points is a foldable's inner display (no slab iPhone is
+  wider than 440, no iPad is shorter than 1133), with the crease at its centre.
+  Only a page that spans the whole display is split — in a split-screen window
+  the centre of the page is not the crease.
+- **The theme makes every screen pane-sized.** Open, every breakpoint is pushed
+  out by the width of the other pane (`paneBreakpointOffset`), so `sm`, `md`
+  and every `useMediaQuery` describe one pane, and each page renders its phone
+  layout in a half without knowing about folds. Don't add `useFold` checks
+  where a breakpoint already says the same thing.
+- **The left pane is the page; the right is a second task view** — Upcoming
+  beside Today, Today beside everything else. It filters the list
+  `TasksProvider` already holds, so it costs no request. Inside it
+  `CompanionViewContext` is true, and `TaskListView` leaves out the quick-add
+  field, the header (Today's is the briefing, a fetch of its own) and `?task=`
+  handling, which stays with the page so one link opens one editor.
+- **Dialogs, snackbars, drawers and menus stay off the crease** by theme
+  overrides: dialogs open in the right pane (the editor fills it, with the list
+  in view beside it), snackbars sit there too, drawers are capped at their
+  pane's width, and menus open leftwards from their button. The bottom nav
+  spans the left pane only: across the whole width its add button sits on the
+  crease.
+- **Opening and closing must not remount anything.** Layout renders the same
+  element tree in both shapes and changes only styles, and the second view is
+  added *after* the page, never around it. Wrapping the `Outlet` conditionally
+  would unmount the page, and a half-written task with it, every time the
+  phone is opened.
+- The manifest's orientation is `any`. Locked to portrait, a browser that
+  honours the lock would turn the open phone sideways into one tall column.
