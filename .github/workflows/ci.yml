@@ -19,7 +19,7 @@ permissions:
 jobs:
   test-server:
     name: Server Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
@@ -50,7 +50,7 @@ jobs:
 
   test-client:
     name: Client Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
 
@@ -75,7 +75,7 @@ jobs:
   # on main, and it only runs once both test jobs (builds included) passed.
   build:
     name: Build
-    runs-on: self-hosted
+    runs-on: ubuntu-26.04
     needs: [test-server, test-client]
     steps:
       - run: echo "Client and server built in their test jobs."
