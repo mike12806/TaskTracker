@@ -13,12 +13,10 @@ export default defineConfig({
   ],
   test: {
     pool: "@cloudflare/vitest-pool-workers",
-    // CI runs on self-hosted runner pods that get a slice of a node, but
-    // vitest's default is one worker per node CPU (each one a full workerd
-    // or jsdom instance). Four of those runs at once drove a 4-CPU node into
-    // memory thrashing, so CI is capped at two workers; local runs keep the
+    // CI runs on GitHub-hosted runners with 4 CPUs, so it gets one worker per
+    // CPU (each one a full workerd or jsdom instance); local runs keep vitest's
     // default.
-    maxWorkers: process.env.CI ? 2 : undefined,
+    maxWorkers: process.env.CI ? 4 : undefined,
     // The heaviest tests can pass 5 s on a 2-CPU runner pod; give them room.
     testTimeout: 25_000,
     // Setup hooks (beforeEach/beforeAll) still had vitest's 10 s default and
