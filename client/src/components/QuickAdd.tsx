@@ -7,6 +7,7 @@ import { useNotification } from "../hooks/useNotification";
 import { useAreas } from "../hooks/useAreas";
 import { useSettings } from "../hooks/useSettings";
 import { parseQuickAdd, quickAddSchedule } from "../utils/quickAdd";
+import { pillFieldSx } from "../theme/pillField";
 import type { TaskDefaults } from "./TaskDialog";
 
 /**
@@ -75,13 +76,7 @@ export default function QuickAdd({ defaults = {}, placeholder = "Add a task" }: 
           ),
         },
       }}
-      // A pill, like the iOS search field. 16px text is also what stops
-      // Safari zooming the page when the field is focused.
-      sx={{
-        mb: 2,
-        "& .MuiOutlinedInput-root": { borderRadius: 999, bgcolor: "background.paper", minHeight: 44 },
-        "& .MuiOutlinedInput-input": { fontSize: 16 },
-      }}
+      sx={{ mb: 2, ...pillFieldSx }}
     />
   );
 }

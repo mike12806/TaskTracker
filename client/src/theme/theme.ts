@@ -125,6 +125,12 @@ export function buildTheme(mode: Mode, fold: FoldLayout = SINGLE) {
   const dialogShadow = isLight
     ? "0 24px 56px rgba(15, 23, 42, 0.18), 0 8px 16px rgba(15, 23, 42, 0.10)"
     : "0 32px 72px rgba(0, 0, 0, 0.65), 0 12px 24px rgba(0, 0, 0, 0.45)";
+  // iOS's own fills for a segmented control's track and an off switch: a
+  // translucent grey that reads on both the page ground and a card.
+  const controlTrack = isLight
+    ? "rgba(118, 118, 128, 0.12)"
+    : "rgba(118, 118, 128, 0.24)";
+  const segmentThumb = isLight ? "#ffffff" : "#2b3245";
   const backdropColor = isLight
     ? "rgba(15, 23, 42, 0.45)"
     : "rgba(2, 4, 8, 0.65)";
@@ -205,7 +211,10 @@ export function buildTheme(mode: Mode, fold: FoldLayout = SINGLE) {
       },
       MuiPaper: {
         styleOverrides: {
-          rounded: { borderRadius: 16 },
+          // A card (outlined) is an inset-grouped section, so it takes the
+          // iOS radius; by class, since `rounded` lands after the variant
+          // and would otherwise win.
+          rounded: { borderRadius: 16, "&.MuiPaper-outlined": { borderRadius: 14 } },
           root: {
             backgroundImage: "none",
           },
@@ -376,6 +385,84 @@ export function buildTheme(mode: Mode, fold: FoldLayout = SINGLE) {
             gap: 8,
             flexWrap: "wrap",
             "& > :not(style) ~ :not(style)": { marginLeft: 0 },
+          },
+        },
+      },
+      // A segmented control, the iOS way: a grey track with the chosen segment
+      // raised on it. The group's own first/middle/last rules square off and
+      // overlap the buttons' borders; they are undone from the root so they
+      // land after them.
+      MuiToggleButtonGroup: {
+        styleOverrides: {
+          root: {
+            backgroundColor: controlTrack,
+            borderRadius: 10,
+            padding: 2,
+            gap: 2,
+            "& .MuiToggleButtonGroup-grouped": {
+              border: 0,
+              borderRadius: 8,
+              margin: 0,
+            },
+          },
+        },
+      },
+      MuiToggleButton: {
+        defaultProps: { disableRipple: true },
+        styleOverrides: {
+          root: {
+            textTransform: "none",
+            fontWeight: 600,
+            minHeight: 32,
+            paddingBlock: 4,
+            paddingInline: 14,
+            color: isLight ? "#555b6a" : "#a3acba",
+            transition: "background-color 160ms ease, box-shadow 160ms ease",
+            "&:hover": { backgroundColor: "transparent" },
+            "&.Mui-focusVisible": { outline: `2px solid ${isLight ? "#5b5dff" : "#a5b4fc"}`, outlineOffset: -2 },
+            "&.Mui-selected, &.Mui-selected:hover": {
+              backgroundColor: segmentThumb,
+              color: isLight ? "#10131c" : "#f1f5f9",
+              boxShadow: isLight
+                ? "0 3px 8px rgba(15, 23, 42, 0.12), 0 1px 1px rgba(15, 23, 42, 0.06)"
+                : "0 3px 8px rgba(0, 0, 0, 0.35)",
+            },
+          },
+        },
+      },
+      // The iOS switch: 51 × 31, a white thumb, no ripple. Focus is shown as a
+      // ring on the thumb instead.
+      MuiSwitch: {
+        defaultProps: { disableRipple: true },
+        styleOverrides: {
+          root: { width: 51, height: 31, padding: 0, margin: 6 },
+          switchBase: {
+            padding: 2,
+            color: "#ffffff",
+            "&:hover": { backgroundColor: "transparent" },
+            "&.Mui-checked": {
+              transform: "translateX(20px)",
+              color: "#ffffff",
+              "&:hover": { backgroundColor: "transparent" },
+              "& + .MuiSwitch-track": { opacity: 1 },
+            },
+            "&.Mui-disabled": { color: "#ffffff" },
+            "&.Mui-disabled + .MuiSwitch-track": { opacity: 0.45 },
+            "&.Mui-focusVisible .MuiSwitch-thumb": {
+              outline: `2px solid ${isLight ? "#5b5dff" : "#a5b4fc"}`,
+              outlineOffset: 2,
+            },
+          },
+          thumb: {
+            width: 27,
+            height: 27,
+            boxShadow: "0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16)",
+          },
+          track: {
+            borderRadius: 31 / 2,
+            backgroundColor: controlTrack,
+            opacity: 1,
+            transition: "background-color 200ms ease",
           },
         },
       },

@@ -20,14 +20,16 @@ import { useNotification } from "../hooks/useNotification";
 import { useDataRefresh } from "../hooks/useDataRefresh";
 import { refreshBriefing } from "../api/tasks";
 import AreasSettings from "../components/AreasSettings";
+import PageTitle from "../components/PageTitle";
+import SectionHeading from "../components/SectionHeading";
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, py: 1.5 }}>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 600, fontSize: 14.5 }}>{label}</Typography>
+        <Typography sx={{ fontWeight: 500, fontSize: 16 }}>{label}</Typography>
         {hint && (
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13.5 }}>
             {hint}
           </Typography>
         )}
@@ -69,11 +71,10 @@ export default function SettingsPage() {
 
   return (
     <Box sx={{ maxWidth: 640, mx: "auto" }}>
-      <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.02em", mb: 2 }}>
-        Settings
-      </Typography>
+      <PageTitle sx={{ px: 0.5, mb: 2 }}>Settings</PageTitle>
 
-      <Paper variant="outlined" sx={{ px: 2, mb: 2 }}>
+      <SectionHeading>Appearance</SectionHeading>
+      <Paper variant="outlined" sx={{ px: 2, mb: 2.5 }}>
         <Row label="Theme">
           <ToggleButtonGroup exclusive size="small" value={preference} onChange={(_, v) => v && setPreference(v)}>
             <ToggleButton value="system">Auto</ToggleButton>
@@ -85,7 +86,8 @@ export default function SettingsPage() {
 
       <AreasSettings />
 
-      <Paper variant="outlined" sx={{ px: 2, mb: 2 }}>
+      <SectionHeading>Reminders</SectionHeading>
+      <Paper variant="outlined" sx={{ px: 2, mb: 2.5 }}>
         <Row
           label="Push reminders"
           hint={
@@ -115,8 +117,9 @@ export default function SettingsPage() {
         </Row>
       </Paper>
 
-      <Paper variant="outlined" sx={{ px: 2, mb: 2 }}>
-        <Row label="Morning briefing" hint="Written at this hour each day, on the Today page.">
+      <SectionHeading>Morning briefing</SectionHeading>
+      <Paper variant="outlined" sx={{ px: 2, mb: 2.5 }}>
+        <Row label="Time" hint="Written at this hour each day, on the Today page.">
           <TextField
             select
             size="small"

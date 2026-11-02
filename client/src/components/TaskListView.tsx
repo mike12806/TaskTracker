@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Box, CircularProgress, Paper, Typography } from "@mui/material";
+import { Box, CircularProgress, Typography } from "@mui/material";
 import TaskItem from "./TaskItem";
+import TaskRows from "./TaskRows";
+import PageTitle from "./PageTitle";
+import SectionHeading from "./SectionHeading";
 import TaskDialog, { type TaskDefaults } from "./TaskDialog";
 import QuickAdd from "./QuickAdd";
 import { useTasks } from "../hooks/useTasks";
@@ -86,21 +89,7 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
   return (
     <Box sx={{ maxWidth: 760, mx: "auto" }}>
       <Box sx={{ mb: 2, px: 0.5 }}>
-        {/* An iOS large title. On a short screen — the open iPhone Duo is 626
-            points tall, a slab phone held sideways less — it would push the
-            first task below the fold, so it drops to a compact size there. */}
-        <Typography
-          component="h1"
-          sx={{
-            fontSize: 30,
-            lineHeight: 1.15,
-            fontWeight: 800,
-            letterSpacing: "-0.025em",
-            "@media (max-height: 640px)": { fontSize: 24 },
-          }}
-        >
-          {title}
-        </Typography>
+        <PageTitle component={companion ? "h2" : "h1"}>{title}</PageTitle>
         {selected !== "all" && (
           <Typography variant="body2" sx={{ color: areaById(selected)?.color, fontWeight: 600 }}>
             {areaById(selected)?.name}
@@ -134,27 +123,15 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
       {groups.map((g) => (
         <Box key={g.key} sx={{ mb: 2.5 }}>
           {g.heading && (
-            <Typography
-              variant="overline"
-              sx={{
-                display: "block",
-                fontSize: 12.5,
-                fontWeight: 700,
-                letterSpacing: "0.04em",
-                lineHeight: 2,
-                px: 1,
-                color: g.tone === "error" ? "error.main" : "text.secondary",
-                mb: 0.25,
-              }}
-            >
+            <SectionHeading tone={g.tone}>
               {g.heading} · {g.tasks.length}
-            </Typography>
+            </SectionHeading>
           )}
-          <Paper variant="outlined" sx={{ overflow: "hidden", borderRadius: "14px" }}>
+          <TaskRows>
             {g.tasks.map((task) => (
               <TaskItem key={task.id} task={task} onToggle={onToggle} onOpen={onOpen} hideDate={g.hideDate} hideList={hideList} />
             ))}
-          </Paper>
+          </TaskRows>
         </Box>
       ))}
 

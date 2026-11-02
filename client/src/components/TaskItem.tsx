@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { Box, Checkbox, Chip, Tooltip, Typography, useTheme } from "@mui/material";
 import { AlarmRoundedIcon, CheckRoundedIcon, FlagRoundedIcon, NotesRoundedIcon, RepeatRoundedIcon } from "../icons";
 import PendingChip from "./PendingChip";
@@ -16,6 +16,8 @@ interface TaskItemProps {
   hideDate?: boolean;
   /** Hide the list badge — the view is that list. */
   hideList?: boolean;
+  /** Shown at the end of the title line — Completed puts the completion time there. */
+  trailing?: ReactNode;
 }
 
 /**
@@ -24,7 +26,7 @@ interface TaskItemProps {
  * more than accessibility: `isUserBusy` treats a focused checkbox as not busy,
  * so ticking a task never holds the next refresh hostage.
  */
-function TaskItem({ task, onToggle, onOpen, hideDate, hideList }: TaskItemProps) {
+function TaskItem({ task, onToggle, onOpen, hideDate, hideList, trailing }: TaskItemProps) {
   const theme = useTheme();
   const colors = buildCategoryColors(theme.palette.mode === "dark");
   const { listById } = useLists();
@@ -47,9 +49,6 @@ function TaskItem({ task, onToggle, onOpen, hideDate, hideList }: TaskItemProps)
         gap: 0.5,
         pt: 0.5,
         pl: 0.5,
-        // Separators start at the title, not the screen edge, the way an iOS
-        // inset-grouped list draws them — so the border is on the text column.
-        "&:last-of-type .task-text": { borderBottom: 0 },
         transition: "background-color 120ms ease",
         "&:active": { bgcolor: "action.hover" },
       }}
@@ -98,21 +97,28 @@ function TaskItem({ task, onToggle, onOpen, hideDate, hideList }: TaskItemProps)
         onKeyDown={(e) => {
           if (e.key === "Enter") onOpen(task);
         }}
+        // TaskRows draws the separator on this column, so it starts at the
+        // title rather than the screen edge.
         className="task-text"
-        sx={{ flex: 1, minWidth: 0, cursor: "pointer", pt: 1, pb: 1.25, pr: 1.5, borderBottom: 1, borderColor: "divider" }}
+        sx={{ flex: 1, minWidth: 0, cursor: "pointer", pt: 1, pb: 1.25, pr: 1.5 }}
       >
-        <Typography
-          sx={{
-            fontSize: 16,
-            fontWeight: 500,
-            lineHeight: 1.35,
-            wordBreak: "break-word",
-            textDecoration: done ? "line-through" : "none",
-            color: done ? "text.secondary" : "text.primary",
-          }}
-        >
-          {task.title}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+          <Typography
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              fontSize: 16,
+              fontWeight: 500,
+              lineHeight: 1.35,
+              wordBreak: "break-word",
+              textDecoration: done ? "line-through" : "none",
+              color: done ? "text.secondary" : "text.primary",
+            }}
+          >
+            {task.title}
+          </Typography>
+          {trailing}
+        </Box>
         <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 1, mt: 0.25 }}>
           {due && (
             <Typography

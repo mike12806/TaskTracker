@@ -431,10 +431,12 @@ export default function Layout() {
               return (
                 <Box key={tab.id} sx={{ display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
                   {/* A real button (ButtonBase), so it is focusable and VoiceOver
-                      announces it as one. */}
+                      announces it as one. No ripple, like the rest of the tab
+                      bar: it presses in instead. */}
                   <ButtonBase
                     aria-label="New task"
                     onClick={() => setAdding(true)}
+                    disableRipple
                     sx={{
                       width: columns ? 46 : 52,
                       height: columns ? 46 : 52,
@@ -450,6 +452,7 @@ export default function Layout() {
                       borderColor: isDark ? "#0c1018" : "#ffffff",
                       transition: "transform 120ms ease",
                       "&:active": { transform: "scale(0.92)" },
+                      "&.Mui-focusVisible": { outline: 2, outlineColor: "primary.main", outlineOffset: 2 },
                     }}
                   >
                     {tab.icon}
@@ -465,15 +468,19 @@ export default function Layout() {
                 aria-label={tab.label}
                 aria-current={active ? "page" : undefined}
                 onClick={() => (tab.path ? navigate(tab.path) : setDrawerOpen(true))}
+                // An iOS tab bar dims on press rather than rippling. Without
+                // the ripple, keyboard focus needs a ring of its own.
+                disableRipple
                 sx={{
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   gap: "2px",
                   minHeight: 44,
-                  borderRadius: 2,
+                  borderRadius: "12px",
                   color: active ? "primary.main" : "text.secondary",
                   "&:active": { opacity: 0.7 },
+                  "&.Mui-focusVisible": { outline: 2, outlineColor: "primary.main", outlineOffset: -2 },
                 }}
               >
                 {/* The selected tab sits on a tinted pill, so it reads by shape
@@ -481,6 +488,9 @@ export default function Layout() {
                 <Box
                   sx={{
                     width: 52,
+                    // A narrow pane (the open Duo's left half) can't always
+                    // spare 52px a tab.
+                    maxWidth: "100%",
                     height: 28,
                     borderRadius: "14px",
                     display: "flex",

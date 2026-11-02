@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Box, Button, CircularProgress, Paper, Typography } from "@mui/material";
+import { Box, Button, CircularProgress, Typography } from "@mui/material";
 import TaskItem from "../components/TaskItem";
+import TaskRows from "../components/TaskRows";
+import PageTitle from "../components/PageTitle";
 import { fetchCompletedTasks, reopenTask } from "../api/tasks";
 import { useDataRefresh } from "../hooks/useDataRefresh";
 import { useNotification } from "../hooks/useNotification";
@@ -62,9 +64,7 @@ export default function CompletedPage() {
 
   return (
     <Box sx={{ maxWidth: 760, mx: "auto" }}>
-      <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.02em", mb: 2 }}>
-        Completed
-      </Typography>
+      <PageTitle sx={{ px: 0.5, mb: 2 }}>Completed</PageTitle>
       {tasks === null && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <CircularProgress size={28} />
@@ -76,16 +76,23 @@ export default function CompletedPage() {
         </Typography>
       )}
       {tasks && tasks.length > 0 && (
-        <Paper variant="outlined" sx={{ px: 0.5 }}>
+        <TaskRows>
           {tasks.map((task) => (
-            <Box key={task.id} sx={{ position: "relative" }}>
-              <TaskItem task={task} onToggle={onToggle} onOpen={() => {}} />
-              <Typography variant="caption" color="text.secondary" sx={{ position: "absolute", right: 12, top: 12 }}>
-                {task.completed_at ? formatRelativeTime(task.completed_at) : ""}
-              </Typography>
-            </Box>
+            <TaskItem
+              key={task.id}
+              task={task}
+              onToggle={onToggle}
+              onOpen={() => {}}
+              trailing={
+                task.completed_at && (
+                  <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                    {formatRelativeTime(task.completed_at)}
+                  </Typography>
+                )
+              }
+            />
           ))}
-        </Paper>
+        </TaskRows>
       )}
       {more && (
         <Box sx={{ textAlign: "center", mt: 2 }}>
