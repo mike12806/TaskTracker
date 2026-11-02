@@ -163,7 +163,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             bgcolor: "action.hover",
             border: 1,
             borderColor: "divider",
-            fontSize: 12,
+            fontSize: 13,
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
             overflowX: "auto",
@@ -178,7 +178,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           </Button>
         </Stack>
 
-        <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+        <Typography sx={{ fontSize: 12.5, color: "text.secondary" }}>
           Build {__BUILD_ID__} · {new Date(__BUILD_TIME__).toLocaleString()}
         </Typography>
       </Box>

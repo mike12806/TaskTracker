@@ -76,7 +76,7 @@ export default function AreasSettings() {
   return (
     <Paper variant="outlined" sx={{ px: 2, py: 1.5, mb: 2 }}>
       <Typography sx={{ fontWeight: 600, fontSize: 14.5 }}>Areas</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13, mb: 1.5 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14, mb: 1.5 }}>
         The level above lists, for keeping work and personal apart. Each list belongs to one, and each has its own
         Inbox. Switch areas from the app bar.
       </Typography>

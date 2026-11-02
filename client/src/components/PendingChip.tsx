@@ -33,14 +33,14 @@ export default function PendingChip({ compact = false }: { compact?: boolean }) 
           border: 1,
           borderColor: "divider",
           color: "text.secondary",
-          fontSize: 9.5,
+          fontSize: 11,
           fontWeight: 700,
           letterSpacing: "0.04em",
           textTransform: "uppercase",
           lineHeight: 1.6,
         }}
       >
-        <CloudOffIcon sx={{ fontSize: 11 }} />
+        <CloudOffIcon sx={{ fontSize: 12.5 }} />
         {!compact && "Not synced"}
       </Box>
     </Tooltip>

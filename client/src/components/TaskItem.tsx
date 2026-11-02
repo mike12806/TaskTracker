@@ -119,7 +119,7 @@ function TaskItem({ task, onToggle, onOpen, hideDate, hideList }: TaskItemProps)
               label={list.name}
               sx={{
                 height: 20,
-                fontSize: 11.5,
+                fontSize: 13,
                 fontWeight: 600,
                 bgcolor: "transparent",
                 border: 1,

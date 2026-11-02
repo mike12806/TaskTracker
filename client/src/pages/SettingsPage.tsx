@@ -27,7 +27,7 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
       <Box sx={{ minWidth: 0 }}>
         <Typography sx={{ fontWeight: 600, fontSize: 14.5 }}>{label}</Typography>
         {hint && (
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14 }}>
             {hint}
           </Typography>
         )}

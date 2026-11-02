@@ -196,7 +196,7 @@ export default function Layout() {
                 return (
                   <ListItemButton key={list.id} selected={active} onClick={() => go(path)} sx={{ py: 0.8 }}>
                     <ListItemIcon>
-                      <CircleIcon sx={{ fontSize: 12, color: list.color, ml: 0.5 }} />
+                      <CircleIcon sx={{ fontSize: 13, color: list.color, ml: 0.5 }} />
                     </ListItemIcon>
                     {navLabel(list.name, active)}
                     {count(list.open_count)}
@@ -275,7 +275,7 @@ export default function Layout() {
                     {selected === a.id ? (
                       <CheckRoundedIcon fontSize="small" />
                     ) : (
-                      <CircleIcon sx={{ fontSize: 10, color: a.color, ml: 0.5 }} />
+                      <CircleIcon sx={{ fontSize: 11.5, color: a.color, ml: 0.5 }} />
                     )}
                   </ListItemIcon>
                   {a.name}
@@ -471,7 +471,7 @@ export default function Layout() {
                 <Badge badgeContent={badge} color="primary" max={99}>
                   {tab.icon}
                 </Badge>
-                <Typography sx={{ fontSize: 10.5, fontWeight: active ? 700 : 500, letterSpacing: "-0.005em" }}>{tab.label}</Typography>
+                <Typography sx={{ fontSize: 12, fontWeight: active ? 700 : 500, letterSpacing: "-0.005em" }}>{tab.label}</Typography>
               </Box>
             );
           })}
