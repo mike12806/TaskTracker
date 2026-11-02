@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
@@ -102,7 +102,9 @@ describe("TaskDialog", () => {
   });
 
   it("reminds ahead of the due time", async () => {
-    renderDialog({ defaults: { due_date: tomorrow() } });
+    // Far enough out that "1 day before" is still ahead whatever time the test runs.
+    const due = addDaysStr(todayStr(), 3);
+    renderDialog({ defaults: { due_date: due } });
     await userEvent.click(reminderSelect());
     const options = within(screen.getByRole("listbox")).getAllByRole("option").map((o) => o.textContent);
     expect(options).toEqual([
@@ -123,7 +125,7 @@ describe("TaskDialog", () => {
     await userEvent.click(within(dialog()).getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(mockApi.post).toHaveBeenCalled());
-    expect(mockApi.post.mock.calls[0][1]).toMatchObject({ remind_at: localToIso(todayStr(), "09:00") });
+    expect(mockApi.post.mock.calls[0][1]).toMatchObject({ remind_at: localToIso(addDaysStr(todayStr(), 2), "09:00") });
   });
 
   it("drops a relative reminder when the due date is cleared", async () => {
@@ -146,5 +148,46 @@ describe("TaskDialog", () => {
     await userEvent.click(within(dialog()).getByRole("button", { name: "Next week" }));
     expect(within(dialog()).getByLabelText("Time")).toHaveValue("");
     expect(reminderSelect()).toHaveTextContent("No reminder");
+  });
+
+  describe("past dates and times", () => {
+    const yesterday = () => addDaysStr(todayStr(), -1);
+    const save = () => within(dialog()).getByRole("button", { name: "Save" });
+
+    it("won't save a new task due in the past", async () => {
+      renderDialog({});
+      await userEvent.type(within(dialog()).getByRole("textbox", { name: "Title" }), "Too late");
+      expect(save()).toBeEnabled();
+
+      fireEvent.change(within(dialog()).getByLabelText("Due date"), { target: { value: yesterday() } });
+      expect(save()).toBeDisabled();
+      expect(within(dialog()).getByText("That date has already passed.")).toBeInTheDocument();
+
+      fireEvent.change(within(dialog()).getByLabelText("Due date"), { target: { value: tomorrow() } });
+      expect(save()).toBeEnabled();
+    });
+
+    it("won't save a custom reminder in the past", async () => {
+      renderDialog({ defaults: { due_date: tomorrow() } });
+      await userEvent.type(within(dialog()).getByRole("textbox", { name: "Title" }), "Remind me");
+      await userEvent.click(reminderSelect());
+      await userEvent.click(screen.getByRole("option", { name: "Custom…" }));
+
+      fireEvent.change(within(dialog()).getByLabelText("Remind at"), { target: { value: `${yesterday()}T09:00` } });
+      expect(save()).toBeDisabled();
+      expect(within(dialog()).getByText("That reminder time has already passed.")).toBeInTheDocument();
+
+      fireEvent.change(within(dialog()).getByLabelText("Remind at"), { target: { value: `${tomorrow()}T09:00` } });
+      expect(save()).toBeEnabled();
+    });
+
+    it("lets an already-overdue task be edited, but not moved to another past date", async () => {
+      renderDialog({ task: task({ due_date: yesterday() }) });
+      await userEvent.type(within(dialog()).getByRole("textbox", { name: "Title" }), " again");
+      expect(save()).toBeEnabled();
+
+      fireEvent.change(within(dialog()).getByLabelText("Due date"), { target: { value: addDaysStr(todayStr(), -2) } });
+      expect(save()).toBeDisabled();
+    });
   });
 });
