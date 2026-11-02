@@ -1,4 +1,4 @@
-import { addDaysStr, todayStr } from "./taskDates";
+import { addDaysStr, defaultDueTime, localToIso, todayStr } from "./taskDates";
 import type { Priority } from "../types/models";
 
 /**
@@ -11,6 +11,9 @@ import type { Priority } from "../types/models";
  *
  *   !high !medium !low  (or !h !m !l, !1 !2 !3)
  *   @today @tomorrow @mon … @sun (the next one, never today)  @next-week
+ *
+ * A task with a due date gets the default time and a reminder then, the same
+ * as one made in the full editor (`quickAddSchedule`).
  */
 
 const PRIORITY_TOKENS: Record<string, Priority> = {
@@ -47,6 +50,25 @@ export interface QuickAddResult {
   title: string;
   priority?: Priority;
   due_date?: string;
+}
+
+/**
+ * The due time and reminder a quick-added task with a due date starts with:
+ * the same default time as the editor (`defaultDueTime`), and a reminder at it.
+ *
+ * Unlike the editor, there is nowhere here to warn that a reminder time has
+ * already passed, and the cron fires a past reminder on the next tick. The
+ * default time keeps today's reminders ahead, so in practice this only drops
+ * one in the last minute of the day; it's a guard, not a rule.
+ */
+export function quickAddSchedule(
+  dueDate: string,
+  defaultTime: string,
+  now = new Date(),
+): { due_time: string; remind_at: string | null } {
+  const dueTime = defaultDueTime(dueDate, defaultTime, now);
+  const remindAt = localToIso(dueDate, dueTime);
+  return { due_time: dueTime, remind_at: Date.parse(remindAt) > now.getTime() ? remindAt : null };
 }
 
 export function parseQuickAdd(text: string, now = new Date()): QuickAddResult {
