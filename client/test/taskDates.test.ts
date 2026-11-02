@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compareTasks, describeRecurrence, formatDueDate, hasUpcomingReminder, isOverdue } from "../src/utils/taskDates";
+import { compareTasks, defaultDueTime, describeRecurrence, formatDueDate, hasUpcomingReminder, isOverdue } from "../src/utils/taskDates";
 import type { Task } from "../src/types/models";
 
 const NOW = new Date(2026, 9, 16, 10, 0); // Fri 16 Oct 2026, 10:00 local
@@ -28,6 +28,20 @@ function task(overrides: Partial<Task>): Task {
 }
 
 describe("taskDates", () => {
+  it("starts a new task at the default time, or three hours out once today's has passed", () => {
+    // NOW is 10:00 on the 16th.
+    expect(defaultDueTime("2026-10-17", "09:00", NOW)).toBe("09:00");
+    expect(defaultDueTime("2026-10-16", "11:00", NOW)).toBe("11:00");
+    expect(defaultDueTime("2026-10-16", "09:00", NOW)).toBe("13:00");
+    expect(defaultDueTime("2026-10-16", "09:00", new Date(2026, 9, 16, 14, 7))).toBe("17:07");
+    // A past date was picked on purpose.
+    expect(defaultDueTime("2026-10-15", "09:00", NOW)).toBe("09:00");
+  });
+
+  it("stops at the end of today rather than running into tomorrow", () => {
+    expect(defaultDueTime("2026-10-16", "09:00", new Date(2026, 9, 16, 22, 30))).toBe("23:59");
+  });
+
   it("names nearby days", () => {
     expect(formatDueDate("2026-10-16", NOW)).toBe("Today");
     expect(formatDueDate("2026-10-17", NOW)).toBe("Tomorrow");

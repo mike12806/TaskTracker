@@ -38,6 +38,28 @@ export function localToIso(date: string, time: string): string {
   return new Date(y, m - 1, d, hh, mm).toISOString();
 }
 
+/** How far ahead a task added for today starts, once the default time has passed. */
+export const LATE_DEFAULT_HOURS = 3;
+
+/**
+ * The time a new task due on `date` starts at.
+ *
+ * Normally the default time from settings. But a task added for today after
+ * that time would start out overdue, with a reminder that fires on the next
+ * cron tick, so it gets three hours from now instead. Late in the evening
+ * that would run into tomorrow; it stops at 23:59 rather than quietly moving
+ * the task to a day nobody picked.
+ *
+ * Only today needs this: a future date's default time is still ahead, and a
+ * past date was picked on purpose.
+ */
+export function defaultDueTime(date: string, defaultTime: string, now = new Date()): string {
+  if (date !== todayStr(now) || Date.parse(localToIso(date, defaultTime)) > now.getTime()) return defaultTime;
+  const later = new Date(now.getTime() + LATE_DEFAULT_HOURS * 3_600_000);
+  if (toDateStr(later) !== date) return "23:59";
+  return `${pad(later.getHours())}:${pad(later.getMinutes())}`;
+}
+
 /** An ISO instant as the `YYYY-MM-DDTHH:MM` a datetime-local input wants. */
 export function isoToLocalInput(iso: string): string {
   const d = new Date(iso);

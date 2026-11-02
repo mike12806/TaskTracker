@@ -27,7 +27,7 @@ import { useSaveGuard } from "../hooks/useSaveGuard";
 import { useNotification } from "../hooks/useNotification";
 import { isPending } from "../api/outbox";
 import { clearDraft, loadDraft, saveDraft } from "../utils/formDraft";
-import { addDaysStr, formatTime, isoToLocalInput, todayStr } from "../utils/taskDates";
+import { addDaysStr, defaultDueTime, formatTime, isoToLocalInput, todayStr } from "../utils/taskDates";
 import { REMINDER_OFFSETS, isReminderOffset, offsetFor, remindAtForOffset, type ReminderOffset } from "../utils/reminderOffsets";
 import type { Priority, Recurrence, Task, TaskInput } from "../types/models";
 
@@ -75,8 +75,8 @@ function formFromTask(task: Task, defaultTime: string): FormState {
 
 /**
  * A new task with a due date starts at the default time (09:00 unless changed
- * in Settings) and reminds at that time, so the common case is just a title
- * and a day.
+ * in Settings, or three hours from now once that has passed today) and
+ * reminds at that time, so the common case is just a title and a day.
  */
 function emptyForm(defaults: TaskDefaults, defaultTime: string): FormState {
   return {
@@ -86,7 +86,7 @@ function emptyForm(defaults: TaskDefaults, defaultTime: string): FormState {
     area_id: defaults.area_id ?? null,
     priority: defaults.priority ?? "none",
     due_date: defaults.due_date ?? "",
-    due_time: defaults.due_date ? defaultTime : "",
+    due_time: defaults.due_date ? defaultDueTime(defaults.due_date, defaultTime) : "",
     reminder: defaults.due_date ? "at_due" : "none",
     remind_custom: "",
     recurrence: "none",
@@ -111,7 +111,7 @@ function remindAtFrom(form: FormState, defaultTime: string): string | null {
 /**
  * Sets or clears the due date, keeping the time and reminder in step.
  *
- * Giving a task its first due date fills in the default time and, unless a
+ * Giving a task its first due date fills in the default time (`defaultDueTime`) and, unless a
  * reminder was already picked, a reminder at that time. Moving an existing
  * date leaves both alone, so an all-day task stays all-day. Clearing the date
  * drops a reminder that was relative to it — there's nothing left to count
@@ -125,7 +125,7 @@ function withDueDate(form: FormState, date: string, defaultTime: string): FormSt
   return {
     ...form,
     due_date: date,
-    due_time: form.due_time || defaultTime,
+    due_time: form.due_time || defaultDueTime(date, defaultTime),
     reminder: form.reminder === "none" ? "at_due" : form.reminder,
   };
 }
@@ -214,8 +214,8 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
   const valid = form.title.trim().length > 0 && !(form.reminder === "custom" && !form.remind_custom);
   const input = useMemo(() => toInput(form, defaultTime), [form, defaultTime]);
   // The cron fires anything due, so a reminder set in the past goes off on
-  // the next tick. Easy to do by accident with the 09:00 default on a task
-  // added for today in the afternoon — worth saying, not worth blocking.
+  // the next tick. The defaults avoid that, but moving a dated task to today
+  // or picking an early time still can — worth saying, not worth blocking.
   const reminderInPast =
     !readOnly && !!input.remind_at && Date.parse(input.remind_at) < Date.now() && !reminderUnchanged(task, input);
 
