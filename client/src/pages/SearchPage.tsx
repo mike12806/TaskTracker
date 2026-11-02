@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { Box, InputAdornment, Paper, TextField, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
+import { Box, InputAdornment, TextField, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
 import { SearchRoundedIcon } from "../icons";
 import TaskItem from "../components/TaskItem";
+import TaskRows from "../components/TaskRows";
+import PageTitle from "../components/PageTitle";
 import TaskDialog from "../components/TaskDialog";
 import { searchTasks } from "../api/tasks";
 import { useTasks } from "../hooks/useTasks";
 import { useDataRefresh } from "../hooks/useDataRefresh";
 import { useAreas } from "../hooks/useAreas";
+import { pillFieldSx } from "../theme/pillField";
 import type { Task } from "../types/models";
 
 /**
@@ -48,11 +51,10 @@ export default function SearchPage() {
 
   return (
     <Box sx={{ maxWidth: 760, mx: "auto" }}>
-      <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.02em", mb: 2 }}>
-        Search
-      </Typography>
+      <PageTitle sx={{ px: 0.5, mb: 2 }}>Search</PageTitle>
       <TextField
         fullWidth
+        size="small"
         autoFocus
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -62,12 +64,12 @@ export default function SearchPage() {
           input: {
             startAdornment: (
               <InputAdornment position="start">
-                <SearchRoundedIcon />
+                <SearchRoundedIcon sx={{ color: "text.secondary" }} />
               </InputAdornment>
             ),
           },
         }}
-        sx={{ mb: 1.5 }}
+        sx={{ mb: 1.5, ...pillFieldSx }}
       />
       <ToggleButtonGroup exclusive size="small" value={scope} onChange={(_, v) => v && setScope(v)} sx={{ mb: 2 }}>
         <ToggleButton value="open">Open</ToggleButton>
@@ -79,7 +81,7 @@ export default function SearchPage() {
         </Typography>
       )}
       {results.length > 0 && (
-        <Paper variant="outlined" sx={{ px: 0.5 }}>
+        <TaskRows>
           {results.map((task) => (
             <TaskItem
               key={task.id}
@@ -88,7 +90,7 @@ export default function SearchPage() {
               onOpen={scope === "open" ? setEditing : () => {}}
             />
           ))}
-        </Paper>
+        </TaskRows>
       )}
       <TaskDialog open={editing !== null} task={editing} onClose={() => setEditing(null)} />
     </Box>

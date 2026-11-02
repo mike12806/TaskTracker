@@ -7,6 +7,7 @@ import { useNotification } from "../hooks/useNotification";
 import { useAreas } from "../hooks/useAreas";
 import { useSettings } from "../hooks/useSettings";
 import { parseQuickAdd, quickAddSchedule } from "../utils/quickAdd";
+import { pillFieldSx } from "../theme/pillField";
 import type { TaskDefaults } from "./TaskDialog";
 
 /**
@@ -70,12 +71,12 @@ export default function QuickAdd({ defaults = {}, placeholder = "Add a task" }: 
         input: {
           startAdornment: (
             <InputAdornment position="start">
-              <AddRoundedIcon sx={{ color: "text.secondary" }} />
+              <AddRoundedIcon sx={{ color: "primary.main" }} />
             </InputAdornment>
           ),
         },
       }}
-      sx={{ mb: 2 }}
+      sx={{ mb: 2, ...pillFieldSx }}
     />
   );
 }

@@ -98,6 +98,14 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const fold = useFold();
   const theme = useMemo(() => buildTheme(mode, fold), [mode, fold]);
 
+  // The status bar and the app switcher take their colour from theme-color.
+  // index.html can only follow the system setting, so a theme chosen in
+  // Settings would leave the bar the other colour; keep it on the page ground.
+  const ground = theme.palette.background.default;
+  useEffect(() => {
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", ground));
+  }, [ground]);
+
   const value = useMemo(() => ({ mode, preference, setPreference }), [mode, preference, setPreference]);
 
   return (

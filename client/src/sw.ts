@@ -20,15 +20,13 @@
  * Offline readability was the price; it was only ever readable-but-wrong.
  *
  * What *is* cached: the precached app shell (versioned per build, so never
- * stale in the data sense) and Google Fonts (immutable).
+ * stale in the data sense), and nothing else. The app uses the system font,
+ * so there are no web fonts to keep either.
  */
 
 import { clientsClaim } from "workbox-core";
 import { addRoute, cleanupOutdatedCaches, createHandlerBoundToURL, precache } from "workbox-precaching";
 import { NavigationRoute, registerRoute } from "workbox-routing";
-import { StaleWhileRevalidate } from "workbox-strategies";
-import { ExpirationPlugin } from "workbox-expiration";
-import { CacheableResponsePlugin } from "workbox-cacheable-response";
 import { createShellHandler } from "./utils/appShell";
 import { BUILD_ID_REQUEST, type BuildIdReply } from "./serviceWorkerContract";
 
@@ -83,17 +81,12 @@ self.addEventListener("message", (event) => {
 // No route matches /api/* — deliberately. Those requests pass straight
 // through to the network and fail honestly when it's down.
 
-registerRoute(
-  ({ url }) =>
-    url.origin === "https://fonts.googleapis.com" || url.origin === "https://fonts.gstatic.com",
-  new StaleWhileRevalidate({
-    cacheName: "google-fonts",
-    plugins: [
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-      new ExpirationPlugin({ maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 30 }),
-    ],
-  })
-);
+// Roboto used to come from Google Fonts and was kept in a runtime cache. The
+// page no longer asks for it (the theme's font stack is the system font, and
+// Android has Roboto built in), so drop what earlier builds stored.
+self.addEventListener("activate", (event) => {
+  event.waitUntil(caches.delete("google-fonts"));
+});
 
 // Task reminders (server/src/scheduled/reminders.ts). The payload is decided
 // by the server at the moment the reminder fires, so unlike API data there is

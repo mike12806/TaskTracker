@@ -166,3 +166,25 @@ describe("Layout on the iPhone Duo", () => {
     expect(screen.getByText("Pay rent")).toBeInTheDocument();
   });
 });
+
+describe("The tab bar", () => {
+  it("is made of real buttons, and marks the page it is on", async () => {
+    showDisplay("outer");
+    renderAt("/");
+    expect(await screen.findByText("Pay rent")).toBeInTheDocument();
+    const today = screen.getByRole("button", { name: "Today" });
+    expect(today.tagName).toBe("BUTTON");
+    expect(today).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Upcoming" })).not.toHaveAttribute("aria-current");
+    // The app bar has a "New task" too, hidden by CSS below md.
+    for (const add of screen.getAllByRole("button", { name: "New task" })) expect(add.tagName).toBe("BUTTON");
+  });
+
+  it("leaves one page heading when the second view is open beside it", async () => {
+    showDisplay("inner");
+    renderAt("/");
+    expect(await within(secondView()!).findByText("Dentist")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Today");
+  });
+});

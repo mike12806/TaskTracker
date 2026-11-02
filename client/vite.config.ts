@@ -56,8 +56,10 @@ export default defineConfig({
         // src/utils/fold.ts). Locked to portrait, a browser that honours the
         // lock would turn it sideways into one tall column instead.
         orientation: "any",
-        theme_color: "#5b5dff",
-        background_color: "#f5f5f5",
+        // The page ground, as in index.html: the bar above the app is the
+        // same colour as the page under it.
+        theme_color: "#f4f3ef",
+        background_color: "#f4f3ef",
         categories: ["productivity"],
         icons: [
           { src: "icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

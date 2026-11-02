@@ -1,7 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Box, CircularProgress, Paper, Typography } from "@mui/material";
+import { Box, CircularProgress, Typography } from "@mui/material";
 import TaskItem from "./TaskItem";
+import TaskRows from "./TaskRows";
+import PageTitle from "./PageTitle";
+import SectionHeading from "./SectionHeading";
 import TaskDialog, { type TaskDefaults } from "./TaskDialog";
 import QuickAdd from "./QuickAdd";
 import { useTasks } from "../hooks/useTasks";
@@ -85,10 +88,8 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
 
   return (
     <Box sx={{ maxWidth: 760, mx: "auto" }}>
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.02em" }}>
-          {title}
-        </Typography>
+      <Box sx={{ mb: 2, px: 0.5 }}>
+        <PageTitle component={companion ? "h2" : "h1"}>{title}</PageTitle>
         {selected !== "all" && (
           <Typography variant="body2" sx={{ color: areaById(selected)?.color, fontWeight: 600 }}>
             {areaById(selected)?.name}
@@ -122,18 +123,15 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
       {groups.map((g) => (
         <Box key={g.key} sx={{ mb: 2.5 }}>
           {g.heading && (
-            <Typography
-              variant="overline"
-              sx={{ display: "block", fontWeight: 700, color: g.tone === "error" ? "error.main" : "text.secondary", mb: 0.5 }}
-            >
+            <SectionHeading tone={g.tone}>
               {g.heading} · {g.tasks.length}
-            </Typography>
+            </SectionHeading>
           )}
-          <Paper variant="outlined" sx={{ px: 0.5 }}>
+          <TaskRows>
             {g.tasks.map((task) => (
               <TaskItem key={task.id} task={task} onToggle={onToggle} onOpen={onOpen} hideDate={g.hideDate} hideList={hideList} />
             ))}
-          </Paper>
+          </TaskRows>
         </Box>
       ))}
 
