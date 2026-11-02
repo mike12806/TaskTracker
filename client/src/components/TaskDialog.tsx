@@ -28,6 +28,7 @@ import { useNotification } from "../hooks/useNotification";
 import { isPending } from "../api/outbox";
 import { clearDraft, loadDraft, saveDraft } from "../utils/formDraft";
 import { addDaysStr, defaultDueTime, formatTime, isoToLocalInput, todayStr } from "../utils/taskDates";
+import { reminderUnchanged, scheduleProblems } from "../utils/scheduleValidation";
 import { REMINDER_OFFSETS, isReminderOffset, offsetFor, remindAtForOffset, type ReminderOffset } from "../utils/reminderOffsets";
 import type { Priority, Recurrence, Task, TaskInput } from "../types/models";
 
@@ -156,12 +157,6 @@ function keepReminderIfUnchanged(task: Task, input: TaskInput): TaskInput {
   return reminderUnchanged(task, input) ? { ...input, remind_at: task.remind_at } : input;
 }
 
-function reminderUnchanged(task: Task | null, input: TaskInput): boolean {
-  if (!task?.remind_at || !input.remind_at) return false;
-  const minute = (iso: string) => Math.floor(Date.parse(iso) / 60_000);
-  return minute(task.remind_at) === minute(input.remind_at);
-}
-
 const SNOOZE_OPTIONS = [
   { label: "10 minutes", minutes: 10 },
   { label: "1 hour", minutes: 60 },
@@ -211,21 +206,30 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const readOnly = task ? isPending(task) : false;
-  const valid = form.title.trim().length > 0 && !(form.reminder === "custom" && !form.remind_custom);
   const input = useMemo(() => toInput(form, defaultTime), [form, defaultTime]);
-  // The cron fires anything due, so a reminder set in the past goes off on
-  // the next tick. The defaults avoid that, but moving a dated task to today
-  // or picking an early time still can — worth saying, not worth blocking.
-  const reminderInPast =
-    !readOnly && !!input.remind_at && Date.parse(input.remind_at) < Date.now() && !reminderUnchanged(task, input);
+  // Recomputed every render rather than memoised: "past" moves with the clock,
+  // and the dialog can sit open across the minute a time slips behind.
+  const problems = readOnly ? {} : scheduleProblems(input, task);
+  const valid =
+    form.title.trim().length > 0 &&
+    !(form.reminder === "custom" && !form.remind_custom) &&
+    !problems.due &&
+    !problems.reminder;
 
   const close = () => {
     setSnoozeAnchor(null);
     onClose();
   };
 
-  const handleSave = () =>
-    save(input, async (key) => {
+  const handleSave = async () => {
+    // The Save button is already disabled for this, but a dialog left open
+    // past the minute gets here with a time that has since slipped behind.
+    const stale = scheduleProblems(input, task);
+    if (stale.due || stale.reminder) {
+      notify(stale.due ?? stale.reminder ?? "That time has already passed.", "error");
+      return;
+    }
+    await save(input, async (key) => {
       try {
         if (task) await update(task.id, keepReminderIfUnchanged(task, input));
         else await create(input, key);
@@ -235,6 +239,7 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
         notify(err instanceof Error ? err.message : "Couldn't save the task.", "error");
       }
     });
+  };
 
   const handleDiscard = () => {
     if (!task) clearDraft(DRAFT_NAME, null);
@@ -372,6 +377,8 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
               type="date"
               value={form.due_date}
               onChange={(e) => setForm((f) => withDueDate(f, e.target.value, defaultTime))}
+              error={!!problems.due}
+              helperText={problems.due}
               slotProps={{ inputLabel: { shrink: true } }}
               sx={{ flex: 1 }}
               disabled={readOnly}
@@ -428,9 +435,10 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
                     : f.remind_custom,
               }));
             }}
+            error={!!problems.reminder}
             helperText={
-              reminderInPast
-                ? "That time has already passed — the reminder will go off right away."
+              problems.reminder
+                ? problems.reminder
                 : isReminderOffset(form.reminder) && form.due_date && !form.due_time
                   ? `Counted from ${formatTime(defaultTime)} on the due date (change the default in Settings)`
                   : undefined
@@ -451,6 +459,7 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
               type="datetime-local"
               value={form.remind_custom}
               onChange={(e) => set("remind_custom", e.target.value)}
+              error={!!problems.reminder}
               slotProps={{ inputLabel: { shrink: true } }}
               disabled={readOnly}
             />
