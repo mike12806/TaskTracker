@@ -60,11 +60,11 @@ function EntryRow({
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1, py: 0.25 }}>
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.3 }} noWrap>
+        <Typography sx={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.3 }} noWrap>
           {label} · {when}
         </Typography>
         {entry.failure && (
-          <Typography sx={{ fontSize: 11, opacity: 0.85, lineHeight: 1.3 }}>
+          <Typography sx={{ fontSize: 12.5, opacity: 0.85, lineHeight: 1.3 }}>
             {entry.failure}
           </Typography>
         )}

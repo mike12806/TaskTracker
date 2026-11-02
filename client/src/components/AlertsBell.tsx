@@ -291,7 +291,7 @@ export default function AlertsBell() {
               </Box>
               <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: "-0.005em" }} noWrap>
+                  <Typography sx={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.005em" }} noWrap>
                     {alert.title}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ ml: "auto", flexShrink: 0 }}>
@@ -353,7 +353,7 @@ export default function AlertsBell() {
         <>
           <Divider />
           <Box sx={{ px: 2, py: 1.25, display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="body2" sx={{ fontSize: 12.5, flex: 1 }} color="text.secondary">
+            <Typography variant="body2" sx={{ fontSize: 13.5, flex: 1 }} color="text.secondary">
               Alert dismissed.
             </Typography>
             <Button
@@ -377,7 +377,7 @@ export default function AlertsBell() {
           <Divider />
           <Box sx={{ px: 2, py: 1.75, display: "flex", alignItems: "center", gap: 1.5 }}>
             <NotificationsOffRoundedIcon sx={{ fontSize: 20, color: "text.secondary", flexShrink: 0 }} />
-            <Typography variant="body2" sx={{ fontSize: 12.5, flex: 1 }} color="text.secondary">
+            <Typography variant="body2" sx={{ fontSize: 13.5, flex: 1 }} color="text.secondary">
               Notifications are off on this device. Alerts still collect here.
             </Typography>
             <Button
@@ -417,7 +417,7 @@ export default function AlertsBell() {
           badgeContent={unread}
           max={99}
           color="error"
-          slotProps={{ badge: { sx: { fontSize: 10, height: 16, minWidth: 16 } } }}
+          slotProps={{ badge: { sx: { fontSize: 11.5, height: 16, minWidth: 16 } } }}
         >
           <NotificationsNoneRoundedIcon sx={{ fontSize: 22 }} />
         </Badge>

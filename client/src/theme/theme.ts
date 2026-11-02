@@ -151,8 +151,8 @@ export function buildTheme(mode: Mode, fold: FoldLayout = SINGLE) {
         ? { default: "#f4f3ef", paper: "#ffffff" }
         : { default: "#0c1018", paper: "#161b27" },
       text: isLight
-        ? { primary: "#10131c", secondary: "#6a7080" }
-        : { primary: "#f1f5f9", secondary: "#8a93a4" },
+        ? { primary: "#10131c", secondary: "#555b6a" }
+        : { primary: "#f1f5f9", secondary: "#a3acba" },
       divider: borderColor,
     },
     typography: {
@@ -164,8 +164,8 @@ export function buildTheme(mode: Mode, fold: FoldLayout = SINGLE) {
       h5: { fontSize: "1.1rem", fontWeight: 600 },
       h6: { fontSize: "1rem", fontWeight: 600 },
       body1: { fontSize: "1rem", fontWeight: 400, lineHeight: 1.5 },
-      body2: { fontSize: "0.875rem", fontWeight: 400, lineHeight: 1.5 },
-      caption: { fontSize: "0.75rem" },
+      body2: { fontSize: "0.9375rem", fontWeight: 400, lineHeight: 1.5 },
+      caption: { fontSize: "0.8125rem", lineHeight: 1.45 },
       button: { textTransform: "none", fontWeight: 600 },
     },
     shape: { borderRadius: 16 },
@@ -351,7 +351,7 @@ export function buildTheme(mode: Mode, fold: FoldLayout = SINGLE) {
         styleOverrides: {
           root: {
             minWidth: 36,
-            color: isLight ? "#6a7080" : "#8a93a4",
+            color: isLight ? "#555b6a" : "#a3acba",
             ".Mui-selected &": {
               color: isLight ? "#5b5dff" : "#a5b4fc",
             },
