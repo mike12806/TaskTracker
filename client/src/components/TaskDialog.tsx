@@ -27,13 +27,15 @@ import { useSaveGuard } from "../hooks/useSaveGuard";
 import { useNotification } from "../hooks/useNotification";
 import { isPending } from "../api/outbox";
 import { clearDraft, loadDraft, saveDraft } from "../utils/formDraft";
-import { addDaysStr, isoToLocalInput, localToIso, todayStr } from "../utils/taskDates";
+import { addDaysStr, formatTime, isoToLocalInput, todayStr } from "../utils/taskDates";
+import { REMINDER_OFFSETS, isReminderOffset, offsetFor, remindAtForOffset, type ReminderOffset } from "../utils/reminderOffsets";
 import type { Priority, Recurrence, Task, TaskInput } from "../types/models";
 
 /** What a new task starts with, decided by the view it was added from. */
 export type TaskDefaults = Partial<Pick<TaskInput, "list_id" | "area_id" | "due_date" | "priority">>;
 
-type ReminderMode = "none" | "at_due" | "custom";
+/** An offset before the due time (`at_due`, `1h`, …), an exact instant, or none. */
+type ReminderMode = "none" | "custom" | ReminderOffset;
 
 interface FormState {
   title: string;
@@ -53,11 +55,9 @@ interface FormState {
 
 const DRAFT_NAME = "new-task";
 
-function formFromTask(task: Task): FormState {
-  const atDue =
-    task.remind_at && task.due_date && task.due_time
-      ? Date.parse(task.remind_at) === Date.parse(localToIso(task.due_date, task.due_time))
-      : false;
+function formFromTask(task: Task, defaultTime: string): FormState {
+  const offset =
+    task.remind_at && task.due_date ? offsetFor(task.due_date, task.due_time || defaultTime, task.remind_at) : null;
   return {
     title: task.title,
     notes: task.notes ?? "",
@@ -66,14 +66,19 @@ function formFromTask(task: Task): FormState {
     priority: task.priority,
     due_date: task.due_date ?? "",
     due_time: task.due_time ?? "",
-    reminder: !task.remind_at ? "none" : atDue ? "at_due" : "custom",
+    reminder: !task.remind_at ? "none" : (offset ?? "custom"),
     remind_custom: task.remind_at ? isoToLocalInput(task.remind_at) : "",
     recurrence: task.recurrence,
     recurrence_interval: task.recurrence_interval || 1,
   };
 }
 
-function emptyForm(defaults: TaskDefaults): FormState {
+/**
+ * A new task with a due date starts at the default time (09:00 unless changed
+ * in Settings) and reminds at that time, so the common case is just a title
+ * and a day.
+ */
+function emptyForm(defaults: TaskDefaults, defaultTime: string): FormState {
   return {
     title: "",
     notes: "",
@@ -81,8 +86,8 @@ function emptyForm(defaults: TaskDefaults): FormState {
     area_id: defaults.area_id ?? null,
     priority: defaults.priority ?? "none",
     due_date: defaults.due_date ?? "",
-    due_time: "",
-    reminder: "none",
+    due_time: defaults.due_date ? defaultTime : "",
+    reminder: defaults.due_date ? "at_due" : "none",
     remind_custom: "",
     recurrence: "none",
     recurrence_interval: 1,
@@ -92,14 +97,37 @@ function emptyForm(defaults: TaskDefaults): FormState {
 /**
  * The instant a reminder should fire, from the form.
  *
- * "At due time" with no due time uses the default reminder time from
- * settings, so "remind me on Friday" works without having to pick a time.
+ * A reminder relative to the due time, on a task with no due time (one from
+ * before due times were filled in, or one whose time was cleared), counts
+ * from the default time in settings.
  */
 function remindAtFrom(form: FormState, defaultTime: string): string | null {
   if (form.reminder === "none") return null;
   if (form.reminder === "custom") return form.remind_custom ? new Date(form.remind_custom).toISOString() : null;
   if (!form.due_date) return null;
-  return localToIso(form.due_date, form.due_time || defaultTime);
+  return remindAtForOffset(form.due_date, form.due_time || defaultTime, form.reminder);
+}
+
+/**
+ * Sets or clears the due date, keeping the time and reminder in step.
+ *
+ * Giving a task its first due date fills in the default time and, unless a
+ * reminder was already picked, a reminder at that time. Moving an existing
+ * date leaves both alone, so an all-day task stays all-day. Clearing the date
+ * drops a reminder that was relative to it — there's nothing left to count
+ * from — but keeps an exact one.
+ */
+function withDueDate(form: FormState, date: string, defaultTime: string): FormState {
+  if (!date) {
+    return { ...form, due_date: "", due_time: "", reminder: isReminderOffset(form.reminder) ? "none" : form.reminder };
+  }
+  if (form.due_date) return { ...form, due_date: date };
+  return {
+    ...form,
+    due_date: date,
+    due_time: form.due_time || defaultTime,
+    reminder: form.reminder === "none" ? "at_due" : form.reminder,
+  };
 }
 
 function toInput(form: FormState, defaultTime: string): TaskInput {
@@ -125,9 +153,13 @@ function toInput(form: FormState, defaultTime: string): TaskInput {
  * that already fired would fire again on the next tick.
  */
 function keepReminderIfUnchanged(task: Task, input: TaskInput): TaskInput {
-  if (!task.remind_at || !input.remind_at) return input;
+  return reminderUnchanged(task, input) ? { ...input, remind_at: task.remind_at } : input;
+}
+
+function reminderUnchanged(task: Task | null, input: TaskInput): boolean {
+  if (!task?.remind_at || !input.remind_at) return false;
   const minute = (iso: string) => Math.floor(Date.parse(iso) / 60_000);
-  return minute(task.remind_at) === minute(input.remind_at) ? { ...input, remind_at: task.remind_at } : input;
+  return minute(task.remind_at) === minute(input.remind_at);
 }
 
 const SNOOZE_OPTIONS = [
@@ -158,15 +190,17 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
   const [snoozeAnchor, setSnoozeAnchor] = useState<HTMLElement | null>(null);
 
   const defaultsKey = JSON.stringify(defaults);
-  const [form, setForm] = useState<FormState>(() => (task ? formFromTask(task) : emptyForm(defaults)));
+  const [form, setForm] = useState<FormState>(() =>
+    task ? formFromTask(task, defaultTime) : emptyForm(defaults, defaultTime),
+  );
 
   // Reset whenever the dialog opens on something new. A new task restores a
   // draft if an interruption (an Access re-auth, iOS evicting the app) took
   // the last one away mid-sentence — see `formDraft.ts`.
   useEffect(() => {
     if (!open) return;
-    if (task) setForm(formFromTask(task));
-    else setForm(loadDraft<FormState>(DRAFT_NAME, null) ?? emptyForm({ area_id: defaultAreaId, ...defaults }));
+    if (task) setForm(formFromTask(task, defaultTime));
+    else setForm(loadDraft<FormState>(DRAFT_NAME, null) ?? emptyForm({ area_id: defaultAreaId, ...defaults }, defaultTime));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, task?.id, task?.updated_at, defaultsKey]);
 
@@ -179,6 +213,11 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
   const readOnly = task ? isPending(task) : false;
   const valid = form.title.trim().length > 0 && !(form.reminder === "custom" && !form.remind_custom);
   const input = useMemo(() => toInput(form, defaultTime), [form, defaultTime]);
+  // The cron fires anything due, so a reminder set in the past goes off on
+  // the next tick. Easy to do by accident with the 09:00 default on a task
+  // added for today in the afternoon — worth saying, not worth blocking.
+  const reminderInPast =
+    !readOnly && !!input.remind_at && Date.parse(input.remind_at) < Date.now() && !reminderUnchanged(task, input);
 
   const close = () => {
     setSnoozeAnchor(null);
@@ -332,7 +371,7 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
               label="Due date"
               type="date"
               value={form.due_date}
-              onChange={(e) => set("due_date", e.target.value)}
+              onChange={(e) => setForm((f) => withDueDate(f, e.target.value, defaultTime))}
               slotProps={{ inputLabel: { shrink: true } }}
               sx={{ flex: 1 }}
               disabled={readOnly}
@@ -357,14 +396,14 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
                 key={opt.label}
                 size="small"
                 variant={form.due_date === opt.date ? "contained" : "outlined"}
-                onClick={() => set("due_date", opt.date)}
+                onClick={() => setForm((f) => withDueDate(f, opt.date, defaultTime))}
                 disabled={readOnly}
               >
                 {opt.label}
               </Button>
             ))}
             {form.due_date && (
-              <Button size="small" onClick={() => setForm((f) => ({ ...f, due_date: "", due_time: "" }))} disabled={readOnly}>
+              <Button size="small" onClick={() => setForm((f) => withDueDate(f, "", defaultTime))} disabled={readOnly}>
                 Clear
               </Button>
             )}
@@ -379,23 +418,31 @@ export default function TaskDialog({ open, task, defaults = {}, onClose }: TaskD
               setForm((f) => ({
                 ...f,
                 reminder: mode,
+                // Start a custom reminder from whatever the offset gave.
                 remind_custom:
                   mode === "custom" && !f.remind_custom
-                    ? isoToLocalInput(remindAtFrom({ ...f, reminder: "at_due" }, defaultTime) ?? new Date(Date.now() + 3_600_000).toISOString())
+                    ? isoToLocalInput(
+                        remindAtFrom(f.reminder === "none" ? { ...f, reminder: "at_due" } : f, defaultTime) ??
+                          new Date(Date.now() + 3_600_000).toISOString(),
+                      )
                     : f.remind_custom,
               }));
             }}
             helperText={
-              form.reminder === "at_due" && form.due_date && !form.due_time
-                ? `At ${defaultTime} on the due date (change the default in Settings)`
-                : undefined
+              reminderInPast
+                ? "That time has already passed — the reminder will go off right away."
+                : isReminderOffset(form.reminder) && form.due_date && !form.due_time
+                  ? `Counted from ${formatTime(defaultTime)} on the due date (change the default in Settings)`
+                  : undefined
             }
             disabled={readOnly}
           >
             <MenuItem value="none">No reminder</MenuItem>
-            <MenuItem value="at_due" disabled={!form.due_date}>
-              At due time
-            </MenuItem>
+            {REMINDER_OFFSETS.map((o) => (
+              <MenuItem key={o.key} value={o.key} disabled={!form.due_date}>
+                {o.label}
+              </MenuItem>
+            ))}
             <MenuItem value="custom">Custom…</MenuItem>
           </TextField>
           {form.reminder === "custom" && (
