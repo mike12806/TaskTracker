@@ -6,6 +6,7 @@ import {
   Badge,
   Box,
   Button,
+  ButtonBase,
   Divider,
   Drawer,
   IconButton,
@@ -57,6 +58,11 @@ import { addDaysStr, todayStr } from "../utils/taskDates";
 
 const DRAWER_WIDTH = 260;
 const BOTTOM_NAV_HEIGHT = 68;
+/**
+ * Open, the iPhone Duo's inner display is only 626 points tall, so the tab bar
+ * gives some of its height back to the list. It spans the left pane only.
+ */
+const BOTTOM_NAV_HEIGHT_FOLDED = 58;
 const APPBAR_HEIGHT_MOBILE = 48;
 const APPBAR_HEIGHT_DESKTOP = 56;
 
@@ -120,6 +126,7 @@ export default function Layout() {
   // pane, since the theme puts dialogs on the right.
   const fold = useFold();
   const columns = fold.kind === "columns" ? fold : null;
+  const navHeight = columns ? BOTTOM_NAV_HEIGHT_FOLDED : BOTTOM_NAV_HEIGHT;
 
   const today = todayStr();
   const todayCount = tasks.filter((t) => t.due_date !== null && t.due_date <= today).length;
@@ -350,7 +357,7 @@ export default function Layout() {
           }),
           ml: { md: `${DRAWER_WIDTH}px` },
           mt: { xs: `calc(${APPBAR_HEIGHT_MOBILE}px + env(safe-area-inset-top))`, md: `${APPBAR_HEIGHT_DESKTOP}px` },
-          pb: { xs: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom) + 16px)`, md: 3 },
+          pb: { xs: `calc(${navHeight}px + env(safe-area-inset-bottom) + 16px)`, md: 3 },
           minHeight: { xs: `calc(100vh - ${APPBAR_HEIGHT_MOBILE}px)`, md: `calc(100vh - ${APPBAR_HEIGHT_DESKTOP}px)` },
           maxWidth: "100%",
           // `clip` rather than `hidden` when open: a hidden overflow is a
@@ -418,20 +425,21 @@ export default function Layout() {
           WebkitBackdropFilter: "blur(16px) saturate(180%)",
         }}
       >
-        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", height: BOTTOM_NAV_HEIGHT, alignItems: "center" }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", height: navHeight, alignItems: "center", px: 0.5 }}>
           {bottomTabs.map((tab) => {
             if (tab.id === "add") {
               return (
                 <Box key={tab.id} sx={{ display: "flex", justifyContent: "center", alignItems: "flex-start" }}>
-                  <Box
-                    role="button"
+                  {/* A real button (ButtonBase), so it is focusable and VoiceOver
+                      announces it as one. */}
+                  <ButtonBase
                     aria-label="New task"
                     onClick={() => setAdding(true)}
                     sx={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: "18px",
-                      mt: "-22px",
+                      width: columns ? 46 : 52,
+                      height: columns ? 46 : 52,
+                      borderRadius: columns ? "16px" : "18px",
+                      mt: columns ? "-14px" : "-22px",
                       bgcolor: "primary.main",
                       color: isDark ? "#0c1018" : "#ffffff",
                       display: "flex",
@@ -440,39 +448,56 @@ export default function Layout() {
                       boxShadow: isDark ? "0 8px 22px rgba(165, 180, 252, 0.45)" : "0 8px 22px rgba(91, 93, 255, 0.35)",
                       border: 4,
                       borderColor: isDark ? "#0c1018" : "#ffffff",
-                      cursor: "pointer",
+                      transition: "transform 120ms ease",
                       "&:active": { transform: "scale(0.92)" },
                     }}
                   >
                     {tab.icon}
-                  </Box>
+                  </ButtonBase>
                 </Box>
               );
             }
             const active = tab.path ? location.pathname === tab.path : false;
             const badge = tab.id === "today" ? todayCount : 0;
             return (
-              <Box
+              <ButtonBase
                 key={tab.id}
-                role="button"
                 aria-label={tab.label}
+                aria-current={active ? "page" : undefined}
                 onClick={() => (tab.path ? navigate(tab.path) : setDrawerOpen(true))}
                 sx={{
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: "3px",
-                  py: 0.5,
-                  color: active ? "text.primary" : "text.secondary",
-                  cursor: "pointer",
+                  gap: "2px",
+                  minHeight: 44,
+                  borderRadius: 2,
+                  color: active ? "primary.main" : "text.secondary",
                   "&:active": { opacity: 0.7 },
                 }}
               >
-                <Badge badgeContent={badge} color="primary" max={99}>
-                  {tab.icon}
-                </Badge>
-                <Typography sx={{ fontSize: 12, fontWeight: active ? 700 : 500, letterSpacing: "-0.005em" }}>{tab.label}</Typography>
-              </Box>
+                {/* The selected tab sits on a tinted pill, so it reads by shape
+                    as well as by colour. */}
+                <Box
+                  sx={{
+                    width: 52,
+                    height: 28,
+                    borderRadius: "14px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: active ? (isDark ? "rgba(165, 180, 252, 0.16)" : "rgba(91, 93, 255, 0.12)") : "transparent",
+                    transition: "background-color 160ms ease",
+                  }}
+                >
+                  <Badge badgeContent={badge} color="primary" max={99}>
+                    {tab.icon}
+                  </Badge>
+                </Box>
+                <Typography component="span" sx={{ fontSize: 11.5, fontWeight: active ? 700 : 500, letterSpacing: "-0.005em" }}>
+                  {tab.label}
+                </Typography>
+              </ButtonBase>
             );
           })}
         </Box>

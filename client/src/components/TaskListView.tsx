@@ -85,8 +85,20 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
 
   return (
     <Box sx={{ maxWidth: 760, mx: "auto" }}>
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: "-0.02em" }}>
+      <Box sx={{ mb: 2, px: 0.5 }}>
+        {/* An iOS large title. On a short screen — the open iPhone Duo is 626
+            points tall, a slab phone held sideways less — it would push the
+            first task below the fold, so it drops to a compact size there. */}
+        <Typography
+          component="h1"
+          sx={{
+            fontSize: 30,
+            lineHeight: 1.15,
+            fontWeight: 800,
+            letterSpacing: "-0.025em",
+            "@media (max-height: 640px)": { fontSize: 24 },
+          }}
+        >
           {title}
         </Typography>
         {selected !== "all" && (
@@ -124,12 +136,21 @@ export default function TaskListView({ title, subtitle, filter, group, defaults,
           {g.heading && (
             <Typography
               variant="overline"
-              sx={{ display: "block", fontWeight: 700, color: g.tone === "error" ? "error.main" : "text.secondary", mb: 0.5 }}
+              sx={{
+                display: "block",
+                fontSize: 12.5,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                lineHeight: 2,
+                px: 1,
+                color: g.tone === "error" ? "error.main" : "text.secondary",
+                mb: 0.25,
+              }}
             >
               {g.heading} · {g.tasks.length}
             </Typography>
           )}
-          <Paper variant="outlined" sx={{ px: 0.5 }}>
+          <Paper variant="outlined" sx={{ overflow: "hidden", borderRadius: "14px" }}>
             {g.tasks.map((task) => (
               <TaskItem key={task.id} task={task} onToggle={onToggle} onOpen={onOpen} hideDate={g.hideDate} hideList={hideList} />
             ))}

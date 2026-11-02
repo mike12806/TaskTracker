@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Box, Checkbox, Chip, Tooltip, Typography, useTheme } from "@mui/material";
-import { AlarmRoundedIcon, FlagRoundedIcon, NotesRoundedIcon, RepeatRoundedIcon } from "../icons";
+import { AlarmRoundedIcon, CheckRoundedIcon, FlagRoundedIcon, NotesRoundedIcon, RepeatRoundedIcon } from "../icons";
 import PendingChip from "./PendingChip";
 import { useLists } from "../hooks/useLists";
 import { useAreas } from "../hooks/useAreas";
@@ -37,6 +37,7 @@ function TaskItem({ task, onToggle, onOpen, hideDate, hideList }: TaskItemProps)
   const overdue = isOverdue(task);
   const recurrence = describeRecurrence(task);
   const done = task.completed === 1;
+  const ring = task.priority !== "none" ? colors[task.priority].solid : undefined;
 
   return (
     <Box
@@ -44,22 +45,51 @@ function TaskItem({ task, onToggle, onOpen, hideDate, hideList }: TaskItemProps)
         display: "flex",
         alignItems: "flex-start",
         gap: 0.5,
-        py: 0.75,
-        pr: 1,
-        borderBottom: 1,
-        borderColor: "divider",
-        "&:last-of-type": { borderBottom: 0 },
+        pt: 0.5,
+        pl: 0.5,
+        // Separators start at the title, not the screen edge, the way an iOS
+        // inset-grouped list draws them — so the border is on the text column.
+        "&:last-of-type .task-text": { borderBottom: 0 },
+        transition: "background-color 120ms ease",
+        "&:active": { bgcolor: "action.hover" },
       }}
     >
+      {/* Round, like Reminders: the ring carries the priority colour, and a
+          high-priority ring is tinted too so it reads without colour vision. */}
       <Checkbox
         checked={done}
         onChange={() => onToggle(task)}
+        icon={
+          <Box
+            component="span"
+            sx={{
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              border: 2,
+              borderColor: "currentColor",
+              bgcolor: task.priority === "high" ? colors.high.soft : "transparent",
+            }}
+          />
+        }
+        checkedIcon={
+          <Box
+            component="span"
+            sx={{
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              bgcolor: "currentColor",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <CheckRoundedIcon sx={{ fontSize: 16, color: "background.paper" }} />
+          </Box>
+        }
         slotProps={{ input: { "aria-label": `${done ? "Reopen" : "Complete"} ${task.title}` } }}
-        sx={{
-          mt: -0.25,
-          color: task.priority !== "none" ? colors[task.priority].solid : undefined,
-          "& .MuiSvgIcon-root": { fontSize: 24 },
-        }}
+        sx={{ color: ring, "&.Mui-checked": { color: ring ?? "primary.main" } }}
       />
       <Box
         onClick={() => onOpen(task)}
@@ -68,11 +98,12 @@ function TaskItem({ task, onToggle, onOpen, hideDate, hideList }: TaskItemProps)
         onKeyDown={(e) => {
           if (e.key === "Enter") onOpen(task);
         }}
-        sx={{ flex: 1, minWidth: 0, cursor: "pointer", pt: 0.75 }}
+        className="task-text"
+        sx={{ flex: 1, minWidth: 0, cursor: "pointer", pt: 1, pb: 1.25, pr: 1.5, borderBottom: 1, borderColor: "divider" }}
       >
         <Typography
           sx={{
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: 500,
             lineHeight: 1.35,
             wordBreak: "break-word",

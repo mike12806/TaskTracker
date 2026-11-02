@@ -171,6 +171,17 @@ export function buildTheme(mode: Mode, fold: FoldLayout = SINGLE) {
     shape: { borderRadius: 16 },
     shadows: buildShadows(mode),
     components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          // iOS paints a grey flash over anything tapped, and enlarges text
+          // when the phone turns sideways; neither is what a native app does.
+          body: {
+            WebkitTapHighlightColor: "transparent",
+            WebkitTextSizeAdjust: "100%",
+            textSizeAdjust: "100%",
+          },
+        },
+      },
       MuiButton: {
         defaultProps: { disableElevation: true },
         styleOverrides: {

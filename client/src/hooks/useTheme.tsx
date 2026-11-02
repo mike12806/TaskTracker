@@ -65,6 +65,14 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     return () => mq.removeEventListener("change", handler);
   }, [preference]);
 
+  // The status bar and the app switcher take their colour from theme-color.
+  // index.html can only follow the system setting, so a theme chosen in
+  // Settings would leave the bar the other colour; keep it on the page ground.
+  useEffect(() => {
+    const ground = mode === "dark" ? "#0c1018" : "#f4f3ef";
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", ground));
+  }, [mode]);
+
   // Load preference from server settings on mount. The row is shared with the
   // other preference providers, so this costs no extra request.
   useEffect(() => {

@@ -70,12 +70,18 @@ export default function QuickAdd({ defaults = {}, placeholder = "Add a task" }: 
         input: {
           startAdornment: (
             <InputAdornment position="start">
-              <AddRoundedIcon sx={{ color: "text.secondary" }} />
+              <AddRoundedIcon sx={{ color: "primary.main" }} />
             </InputAdornment>
           ),
         },
       }}
-      sx={{ mb: 2 }}
+      // A pill, like the iOS search field. 16px text is also what stops
+      // Safari zooming the page when the field is focused.
+      sx={{
+        mb: 2,
+        "& .MuiOutlinedInput-root": { borderRadius: 999, bgcolor: "background.paper", minHeight: 44 },
+        "& .MuiOutlinedInput-input": { fontSize: 16 },
+      }}
     />
   );
 }

@@ -57,7 +57,7 @@ export default defineConfig({
         // lock would turn it sideways into one tall column instead.
         orientation: "any",
         theme_color: "#5b5dff",
-        background_color: "#f5f5f5",
+        background_color: "#f4f3ef",
         categories: ["productivity"],
         icons: [
           { src: "icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
