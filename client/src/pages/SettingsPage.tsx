@@ -104,7 +104,7 @@ export default function SettingsPage() {
           />
         </Row>
         <Divider />
-        <Row label="Default reminder time" hint="Used for “At due time” on tasks with no time set.">
+        <Row label="Default time" hint="New tasks with a due date start at this time, with a reminder.">
           <TextField
             type="time"
             size="small"
