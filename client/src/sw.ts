@@ -24,7 +24,7 @@
  */
 
 import { clientsClaim } from "workbox-core";
-import { createHandlerBoundToURL, precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
+import { addRoute, cleanupOutdatedCaches, createHandlerBoundToURL, precache } from "workbox-precaching";
 import { NavigationRoute, registerRoute } from "workbox-routing";
 import { StaleWhileRevalidate } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
@@ -43,7 +43,7 @@ self.skipWaiting();
 clientsClaim();
 
 cleanupOutdatedCaches();
-precacheAndRoute(self.__WB_MANIFEST);
+precache(self.__WB_MANIFEST);
 
 // Navigations are answered with the shell that is live, falling back to the
 // precached one when the network is slow, down, or broken — see
@@ -57,6 +57,16 @@ registerRoute(
     denylist: [/^\/api\//, /^\/cdn-cgi\//],
   })
 );
+
+// The precache's own route goes in *after* the navigation route, never before.
+// Workbox tries routes in the order they were registered, and the precache
+// route answers `/` itself — it maps a directory to its `index.html` — so
+// registered first (which is all `precacheAndRoute` did) it served every
+// launch of the start URL from the old precached shell, and the handler above
+// only ever saw deep links. That was the "loads twice after a deploy" still
+// happening on every launch from the home-screen icon. Navigations now reach
+// the shell handler; scripts, styles and icons still come from the precache.
+addRoute();
 
 // Which build this worker serves.
 //
