@@ -172,12 +172,22 @@ describe("The tab bar", () => {
     showDisplay("outer");
     renderAt("/");
     expect(await screen.findByText("Pay rent")).toBeInTheDocument();
-    const today = screen.getByRole("button", { name: "Today" });
+    // `hidden: true` because jsdom (31+) evaluates `@media` against a fixed
+    // 1024px viewport that `showDisplay` cannot move: it only overrides the
+    // `innerWidth` the app's JS reads. To the stylesheet this is a desktop,
+    // so the tab bar (`md: "none"`) is out of the accessibility tree here
+    // even though it is the one on screen on a phone. What this test checks,
+    // the element and its `aria-current`, does not depend on that. The
+    // drawer's own "Today 1" / "Upcoming 1" rows carry their counts in the
+    // name, so the exact names still find only the tabs.
+    const today = screen.getByRole("button", { name: "Today", hidden: true });
     expect(today.tagName).toBe("BUTTON");
     expect(today).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("button", { name: "Upcoming" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("button", { name: "Upcoming", hidden: true })).not.toHaveAttribute("aria-current");
     // The app bar has a "New task" too, hidden by CSS below md.
-    for (const add of screen.getAllByRole("button", { name: "New task" })) expect(add.tagName).toBe("BUTTON");
+    const adds = screen.getAllByRole("button", { name: "New task", hidden: true });
+    expect(adds).toHaveLength(2);
+    for (const add of adds) expect(add.tagName).toBe("BUTTON");
   });
 
   it("leaves one page heading when the second view is open beside it", async () => {
