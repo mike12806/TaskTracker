@@ -55,7 +55,7 @@ jobs:
       # reached over the tailnet as tag:ci-vault with no stored secret. Runs
       # before npm and leaves the tailnet before any build code runs.
       - name: Read secrets from Vault
-        uses: mike12806/public-jobs/.github/actions/vault-secrets@44d2924c2dfe9ecf02fbec4e6635c29d7daf3153 # main
+        uses: mike12806/public-jobs/.github/actions/vault-secrets@6b087baca3d9331a74b0aefc31addb2541639f54 # main
         with:
           role: tasktracker-deploy
           hostname: github-tasktracker-deploy
